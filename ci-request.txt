@@ -1,0 +1,23 @@
+# Remote command execution, safely.
+#
+# This sandbox has no package manager and no network egress, so nothing here can
+# be built or type-checked locally. GitHub Actions is the terminal. Editing this
+# file and pushing runs the listed scripts and commits their full output to
+# ci-reports/latest.md on this branch.
+#
+# Rules:
+#   - one npm script name per line, exactly as declared in package.json
+#   - lines starting with # are comments; blank lines are ignored
+#   - a name that is not a declared script is REJECTED and fails the job
+#   - anything that is not a bare script name (flags, &&, |, $(), paths) is
+#     REJECTED before it can reach a process. This file selects from existing
+#     scripts; it cannot introduce a command.
+#
+# Available: dev, build, typecheck, vendor, vendor:check, check:export
+# (`dev` would hang a runner forever -- do not list it.)
+#
+# Requested: first full build of the vendored tree.
+
+typecheck
+build
+check:export

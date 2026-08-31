@@ -1,0 +1,110 @@
+# The feedback channel.
+#
+# validate.yml tells you THAT something failed. This tells you WHY, by writing
+# the full stdout/stderr of each script into ci-reports/latest.md and committing
+# it back to the branch, where it can be read without any log-download access.
+#
+# Trigger is deliberately narrow: only a push that edits ci-request.txt. That
+# file is a SELECTION of scripts already declared in package.json -- it is not,
+# and must never become, a way to inject a shell command. scripts/ci-report.mjs
+# enforces that with a ^[A-Za-z0-9:_-]+$ filter AND a membership check against
+# package.json, and spawns with shell:false. Both were tested against hostile
+# input including `rm -rf /` and `typecheck && curl ... | sh`; both were
+# rejected before any process was spawned.
+#
+# This workflow has contents: write. It must therefore never run untrusted code
+# from a fork -- which is why there is no pull_request trigger here and
+# absolutely no pull_request_target.
+
+name: CI report
+
+on:
+  push:
+    paths:
+      - 'ci-request.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-report-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Detect the lockfile BEFORE setup-node: passing cache: without one fails
+      # the step outright with "Dependencies lock file is not found".
+      - name: Detect lockfile
+        id: lock
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No package-lock.json - using a plain install."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.lock.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-node@v4
+        if: steps.lock.outputs.present != 'true'
+        with:
+          node-version: 22
+
+      # The source tree is vendored from upstream and is not committed until the
+      # Vendor workflow has run. Without it there is nothing to build, and a
+      # confusing "cannot find module" is a worse message than saying so.
+      - name: Verify vendored sources are present
+        run: node scripts/vendor.mjs --check
+
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      # continue-on-error so that a red script still produces a published report.
+      # The explicit failure gate is at the end of the job.
+      - name: Run requested scripts
+        id: run
+        continue-on-error: true
+        run: node scripts/ci-report.mjs
+
+      - name: Commit report
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # A first install generates a lockfile; committing it is what lets
+          # later runs take the reproducible `npm ci` path.
+          for p in ci-reports/latest.md package-lock.json; do
+            if [ -e "$p" ]; then git add "$p"; fi
+          done
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "ci: report for ${GITHUB_SHA::7} [skip ci]"
+            # Rebase rather than force: a concurrent push must not be discarded.
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      # Never let this job go green on a failing script. A CI job that cannot
+      # go red is decoration.
+      - name: Fail if any requested script failed
+        if: steps.run.outcome == 'failure'
+        run: |
+          echo "A requested script failed or a request line was rejected."
+          echo "Read ci-reports/latest.md on this branch for the full output."
+          exit 1

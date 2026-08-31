@@ -1,0 +1,1171 @@
+:root {
+  --bg: #050505;
+  --red: #b1121b;
+  --red-dim: #5c0a0f;
+  /* --red is tuned for a glowing 6px dot, not for type: at 0.68rem on
+     #050505 it is close to unreadable. This is the same hue lifted until it
+     is legible as small text. */
+  --red-text: #cf5058;
+  --fg: #e8e4e0;
+  --fg-dim: #7a7370;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Vertical scrolling must stay available: on short viewports the HUD is
+     taller than the screen. Only horizontal overflow is suppressed. */
+  overflow-x: hidden;
+}
+
+main {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- full-screen generative visualizer (only fixed layer) --- */
+.viz {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+}
+
+/* --- overlay chrome, in normal flow so the page can scroll --- */
+.wordmark {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+  margin-top: 1.6rem;
+  letter-spacing: 0.5em;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  pointer-events: none;
+}
+
+.hud {
+  position: relative;
+  z-index: 2;
+  margin-top: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 2.4rem 1rem calc(1.6rem + env(safe-area-inset-bottom));
+  background: linear-gradient(
+    to top,
+    rgba(5, 5, 5, 0.88) 0%,
+    rgba(5, 5, 5, 0.55) 55%,
+    rgba(5, 5, 5, 0) 100%
+  );
+}
+
+/* --- command corner -----------------------------------------------------
+   Borderless by design: it is a label, not a button-looking thing. It sits
+   above the visualizer but must never trap pointer events across the whole
+   corner, hence pointer-events on the wrapper. --- */
+.cmdcorner {
+  position: fixed;
+  top: 1.15rem;
+  right: 1.25rem;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.cmdbtn {
+  position: relative;
+  pointer-events: auto;
+  border: 0;
+  background: none;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.15rem;
+  cursor: pointer;
+  transition: color 0.35s, text-shadow 0.5s;
+}
+
+.cmdbtn:hover,
+.cmdbtn:focus-visible {
+  color: var(--fg);
+  text-shadow: 0 0 16px rgba(177, 18, 27, 0.75);
+}
+
+.cmdbtn:focus-visible {
+  outline: 1px solid var(--red);
+  outline-offset: 5px;
+}
+
+/* the blob. Hidden from the a11y tree (aria-hidden in the markup) because
+   the same information reaches screen readers through the dialog itself. */
+.cmdtip {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  white-space: nowrap;
+  padding: 0.32rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(177, 18, 27, 0.16);
+  border: 1px solid rgba(177, 18, 27, 0.45);
+  color: var(--fg);
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  opacity: 0;
+  transform: translateY(-3px);
+  pointer-events: none;
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.cmdbtn:hover .cmdtip,
+.cmdbtn:focus-visible .cmdtip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* The recall flash: the app opening its own tip, after the dot has answered
+   a repeated space press and has nothing further to add. Deliberately
+   identical to the hover state - it should read as the same corner saying
+   the same thing, not as a new kind of notification. The word brightens
+   with it, because a blob pointing at a dim label looks like it is pointing
+   at nothing. Declared after the hover rules so it wins any tie. */
+.cmdbtn[data-flash="true"] {
+  color: var(--fg);
+  text-shadow: 0 0 16px rgba(177, 18, 27, 0.75);
+}
+
+.cmdbtn[data-flash="true"] .cmdtip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --- command centre ----------------------------------------------------- */
+.cmdscrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(5, 5, 5, 0.72);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  animation: cmdfade 0.22s ease both;
+}
+
+.cmdpanel {
+  width: min(100%, 34rem);
+  max-height: min(80dvh, 40rem);
+  overflow-y: auto;
+  border: 1px solid rgba(177, 18, 27, 0.35);
+  border-radius: 14px;
+  background: linear-gradient(
+    to bottom,
+    rgba(14, 12, 12, 0.97),
+    rgba(7, 6, 6, 0.97)
+  );
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+  padding: 1.5rem 1.6rem 1.35rem;
+  animation: cmdrise 0.26s ease both;
+}
+
+.cmdpanel:focus {
+  outline: none;
+}
+
+.cmdhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.cmdhead h2 {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.cmdclose {
+  border: 0;
+  background: none;
+  color: var(--fg-dim);
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.cmdclose:hover {
+  color: var(--fg);
+}
+
+.cmdclose:focus-visible {
+  outline: 1px solid var(--red);
+  outline-offset: 3px;
+}
+
+.cmdlist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cmdrow {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.7rem 0.2rem;
+  border-top: 1px solid rgba(232, 228, 224, 0.07);
+}
+
+.cmdrow:first-child {
+  border-top: 0;
+}
+
+/* The one row that goes somewhere. The <li> gives up its own padding and
+   grid to the button inside it, so the row looks identical to the others
+   until you point at it - a destination should not be shouting from a list
+   of key bindings. */
+.cmdrowgo {
+  display: block;
+  padding: 0;
+}
+
+.cmdgo {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  gap: 1rem;
+  align-items: baseline;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  padding: 0.7rem 0.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.cmdgo:hover,
+.cmdgo:focus-visible {
+  background: rgba(177, 18, 27, 0.1);
+}
+
+.cmdgo:focus-visible {
+  outline: 1px solid var(--red);
+  outline-offset: 1px;
+}
+
+.cmdkeys {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.cmdkeywrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* "+" for a chord, "then" for a sequence. Lower case and dim so the kbd
+   caps stay the thing the eye lands on. */
+.cmdplus {
+  color: var(--fg-dim);
+  font-size: 0.62rem;
+  opacity: 0.7;
+  letter-spacing: 0.04em;
+}
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg);
+  background: rgba(232, 228, 224, 0.07);
+  border: 1px solid rgba(232, 228, 224, 0.16);
+  border-bottom-color: rgba(232, 228, 224, 0.28);
+  border-radius: 5px;
+  padding: 0.2rem 0.45rem;
+  white-space: nowrap;
+}
+
+.cmdtext {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.cmdlabel {
+  color: var(--fg);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
+.cmddetail {
+  color: var(--fg-dim);
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
+@keyframes cmdfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cmdrise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- philosophy ---------------------------------------------------------
+   The only long-form reading in the app, and therefore the only place that
+   breaks the house style. Everything else is uppercase, tracked-out sans:
+   correct for a four-word label, unreadable for nine paragraphs. This gets
+   a serif, a real measure and a 1.9 line-height, because it is meant to be
+   read once, slowly, and then left alone. --- */
+.phipanel {
+  width: min(100%, 46rem);
+  max-height: min(86dvh, 54rem);
+  padding: 1.6rem 2rem 2rem;
+}
+
+.phibody {
+  font-family: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+  color: var(--fg-dim);
+}
+
+/* The thesis, before any explanation of it. */
+.philede {
+  color: var(--fg);
+  font-size: 1.22rem;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(177, 18, 27, 0.28);
+}
+
+.phisection {
+  padding-top: 1.7rem;
+}
+
+.phisection h3 {
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  margin-bottom: 0.85rem;
+}
+
+.phisection p {
+  font-size: 0.95rem;
+  line-height: 1.9;
+}
+
+.phisection p + p {
+  margin-top: 0.85rem;
+}
+
+.phisection em {
+  color: var(--fg);
+  font-style: italic;
+}
+
+.philist {
+  list-style: none;
+  margin-top: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.philist li {
+  font-size: 0.95rem;
+  line-height: 1.85;
+  padding-left: 1rem;
+  border-left: 1px solid rgba(177, 18, 27, 0.35);
+}
+
+.philist strong {
+  display: block;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* The merge glyph, quoted in prose. Monospace and red so the sentence and
+   the clock are visibly talking about the same mark. */
+.phiglyph {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--red-text);
+  padding: 0 0.1em;
+}
+
+.phiclose {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(177, 18, 27, 0.28);
+  color: var(--fg);
+  font-size: 1.02rem;
+  line-height: 1.8;
+  font-style: italic;
+}
+
+/* --- measurement pane ---------------------------------------------------
+   Deliberately built on .cmdpanel: the two dialogs are the same object
+   showing different things, and giving the second one its own frame would
+   make the app look like two apps. Only the width and the contents
+   differ. --- */
+.msrpanel {
+  width: min(100%, 38rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.msrempty {
+  color: var(--fg-dim);
+  font-size: 0.8rem;
+  line-height: 1.75;
+  padding: 1.4rem 0.2rem 1.8rem;
+}
+
+.msrempty kbd {
+  margin: 0 0.15rem;
+}
+
+/* The headline number. Everything below it is a breakdown of this. */
+.msrtotal {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid rgba(232, 228, 224, 0.07);
+}
+
+.msrbig {
+  color: var(--fg);
+  font-size: 1.6rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.msrmeta {
+  color: var(--fg-dim);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+/* --- current session: mode share --- */
+.msrspans {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.5rem 0 0.2rem;
+}
+
+.msrspan {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 4.5rem;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.55rem 0.2rem;
+}
+
+.msrspanname {
+  color: var(--fg);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* A session is a proportion before it is a number, and a column of
+   durations does not show a proportion. */
+.msrbar {
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(232, 228, 224, 0.08);
+  overflow: hidden;
+}
+
+.msrbarfill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--red);
+  box-shadow: 0 0 10px rgba(177, 18, 27, 0.7);
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+.msrspantime {
+  text-align: right;
+  color: var(--fg-dim);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.msrnote {
+  color: var(--fg-dim);
+  font-size: 0.7rem;
+  line-height: 1.6;
+  opacity: 0.8;
+  padding: 0.4rem 0.2rem 0;
+}
+
+/* --- history --- */
+.msrlist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  /* The panel scrolls; this keeps the footer controls reachable without a
+     long history pushing them off the bottom of the viewport. */
+  max-height: 44dvh;
+  overflow-y: auto;
+  padding: 0.3rem 0 0.2rem;
+}
+
+.msrentry {
+  display: grid;
+  grid-template-columns: 11rem 4.5rem 1fr;
+  align-items: baseline;
+  gap: 0.8rem;
+  padding: 0.62rem 0.2rem;
+  border-top: 1px solid rgba(232, 228, 224, 0.06);
+}
+
+.msrentry:first-child {
+  border-top: 0;
+}
+
+.msrwhen {
+  color: var(--fg-dim);
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+}
+
+.msrdur {
+  color: var(--fg);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.msrmix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.msrchip {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  background: rgba(232, 228, 224, 0.05);
+  border: 1px solid rgba(232, 228, 224, 0.1);
+  border-radius: 999px;
+  padding: 0.16rem 0.5rem;
+  white-space: nowrap;
+}
+
+/* --- footer --- */
+.msrfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(232, 228, 224, 0.07);
+}
+
+.msrfootright {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.msrbtn {
+  border: 1px solid rgba(232, 228, 224, 0.14);
+  background: none;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.38rem 0.85rem;
+  cursor: pointer;
+  transition: color 0.3s, border-color 0.3s, background 0.3s;
+}
+
+.msrbtn:hover:not(:disabled) {
+  color: var(--fg);
+  border-color: rgba(232, 228, 224, 0.3);
+}
+
+.msrbtn:focus-visible {
+  outline: 1px solid var(--red);
+  outline-offset: 3px;
+}
+
+.msrbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Armed. It says what it will do rather than asking a question, because a
+   button that asks "are you sure" teaches people to say yes. */
+.msrbtn[data-danger="true"] {
+  color: var(--fg);
+  border-color: rgba(177, 18, 27, 0.75);
+  background: rgba(177, 18, 27, 0.18);
+}
+
+.msrtoggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--fg-dim);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0.38rem 0.2rem;
+}
+
+.msrtoggle input {
+  accent-color: var(--red);
+  width: 0.85rem;
+  height: 0.85rem;
+  cursor: pointer;
+}
+
+.msrtoggle:hover {
+  color: var(--fg);
+}
+
+/* --- first-run hint ------------------------------------------------------
+   Shown only until the first successful start. Breathes slowly so the eye
+   finds it without it demanding attention. --- */
+.firsthint {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  animation: hintbreathe 4.5s ease-in-out infinite;
+}
+
+.firsthint kbd {
+  letter-spacing: 0.14em;
+}
+
+@keyframes hintbreathe {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+/* --- the readout, and the split clock ------------------------------------
+   A flex row rather than one string, because the red clock has to be able
+   to open and close between the label and the session number without
+   anything else moving. --rgap is declared here and inherited, so the
+   mobile override is a single value. --- */
+.readout {
+  --rgap: 0.55rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--rgap);
+  min-height: 1.1rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  opacity: 0.8;
+}
+
+/* The section name goes red for as long as the mode is settling, so the
+   colour ties the label and the red clock together as one statement. */
+.rlabel {
+  transition: color 0.6s ease;
+}
+
+.rlabel[data-hot="true"] {
+  color: var(--red-text);
+}
+
+/* Closed, this is genuinely zero-width. The negative margin cancels one of
+   its two flex gaps, so a shut split leaves no hole behind - without it the
+   label and the session number would sit permanently too far apart. */
+.rsplit {
+  display: inline-flex;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(0.55em);
+  margin-right: calc(-1 * var(--rgap));
+  color: var(--red-text);
+  transition: max-width 0.5s cubic-bezier(0.2, 0.8, 0.25, 1),
+    opacity 0.38s ease, transform 0.5s cubic-bezier(0.2, 0.8, 0.25, 1),
+    margin-right 0.5s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+.rsplit[data-open="true"] {
+  /* Wide enough for h:mm:ss at this tracking; max-width animates, width
+     auto does not, and the content never reaches this bound. */
+  max-width: 8em;
+  opacity: 1;
+  transform: none;
+  margin-right: 0;
+}
+
+/* Folding in: it dims a moment before it physically leaves, so the merge
+   reads as absorption rather than as the number being deleted. */
+.rsplit[data-stage="summing"] {
+  opacity: 0.72;
+}
+
+/* Without tabular figures every tick of the reel re-measures the string and
+   the whole row twitches sideways. Non-negotiable for a running clock. */
+.rmode,
+.rsession {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.rsep {
+  transition: color 0.45s ease, transform 0.45s ease;
+}
+
+/* The separator becomes the merge glyph. It is not arithmetic - the settling
+   time is already inside the session time - it is the two clocks being shown
+   as one thing again. */
+.rsep[data-sum="true"] {
+  color: var(--red-text);
+  transform: scale(1.2);
+}
+
+.rpaused {
+  opacity: 0.85;
+}
+
+/* --- mode bar: horizontally scrollable selector.
+       Not buttons; no squares, no squircles. The item scrolled to the
+       center becomes the active mode; the circular dot marks the center.
+       Full 50% edge padding lets ANY label (they differ in width) land
+       exactly on the snapport center, i.e. directly over the red dot. --- */
+.modebar {
+  width: min(100%, 30rem);
+  display: flex;
+  gap: 3.4rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 0.55rem 50%;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 22%,
+    #000 78%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 22%,
+    #000 78%,
+    transparent 100%
+  );
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  cursor: grab;
+}
+
+.modebar::-webkit-scrollbar {
+  display: none;
+}
+
+.modebar:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 14px rgba(214, 40, 52, 0.55));
+}
+
+.modeitem {
+  scroll-snap-align: center;
+  flex: 0 0 auto;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.78rem;
+  color: var(--fg-dim);
+  opacity: 0.55;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: color 0.4s, opacity 0.4s, text-shadow 0.6s;
+}
+
+.modeitem:hover {
+  opacity: 0.85;
+}
+
+.modeitem[aria-checked="true"] {
+  color: var(--fg);
+  opacity: 1;
+  text-shadow: 0 0 18px rgba(177, 18, 27, 0.9);
+}
+
+/* --- the dot, and what grows out of it ----------------------------------
+   The wrapper is only as wide as the dot, so the blob's 50% offset is the
+   dot's own centre. It stays 6px tall in flow: the blob is absolutely
+   positioned, so blooming never nudges the mode bar. --- */
+.dotwrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 6px;
+}
+
+.dothintlive {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Concentric with the dot and scaled from its size, so the growth reads as
+   the dot itself opening rather than a popover appearing next to it. */
+.dothint {
+  display: inline-block;
+  white-space: nowrap;
+  max-width: 88vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.42rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(177, 18, 27, 0.24);
+  border: 1px solid rgba(177, 18, 27, 0.5);
+  box-shadow: 0 0 26px rgba(177, 18, 27, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--fg);
+  font-size: 0.64rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: scale(0.14);
+  /* Out is quicker than in: the collapse should feel like the blob being
+     pulled back into the dot, not like it fading out where it stands. */
+  transition: opacity 0.24s ease, transform 0.28s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.dothint[data-open="true"] {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.34s ease,
+    transform 0.46s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+/* Pacing.
+   "quick" (line one) is a REPLY - it should arrive at about the speed of the
+   key press that asked for it, so it keeps the timings above.
+   "slow" (lines two and three) is the app volunteering something unasked,
+   so it opens roughly twice as gently and is drawn back in more softly too.
+   The easing loses its overshoot as well: a slow bounce reads as bounce,
+   where a fast one reads as spring. */
+.dothint[data-pace="slow"] {
+  transition: opacity 0.42s ease, transform 0.5s cubic-bezier(0.4, 0, 0.7, 0.4);
+}
+
+.dothint[data-pace="slow"][data-open="true"] {
+  transition: opacity 0.7s ease, transform 0.95s cubic-bezier(0.16, 0.7, 0.2, 1);
+}
+
+/* Circular center marker under the bar. It doubles as the arrow-arming
+   indicator: the first arrow press does not change the mode, so something
+   has to acknowledge it or the key feels broken. Sized in a wrapper-free
+   way -- transform:scale on a 6px dot is cheap and never reflows the HUD. */
+.modedot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 12px rgba(177, 18, 27, 0.8);
+  transition: transform 0.32s ease, box-shadow 0.4s ease, opacity 0.24s ease;
+}
+
+/* first press heard, waiting for the confirming second one */
+.modedot[data-arm="pending"] {
+  animation: dotarm 0.62s cubic-bezier(0.22, 0.9, 0.3, 1) 1;
+}
+
+/* arrows are live; further single presses will step */
+.modedot[data-arm="armed"] {
+  transform: scale(1.45);
+  box-shadow: 0 0 16px rgba(177, 18, 27, 1),
+    0 0 0 5px rgba(177, 18, 27, 0.12);
+}
+
+/* While the blob is open the dot IS the blob, so it gets out of the way.
+   Declared after the arming rules so it wins on equal specificity even if
+   an arrow is armed at the same time. */
+.modedot[data-hidden="true"] {
+  opacity: 0;
+  transform: scale(0.2);
+  animation: none;
+}
+
+@keyframes dotarm {
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(1.85);
+    box-shadow: 0 0 20px rgba(177, 18, 27, 1),
+      0 0 0 7px rgba(177, 18, 27, 0.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Small screens: tighten the spacing between labels so more than one
+   neighbour stays visible either side of the dot. (Replaces the old
+   .modes/.mode 64px rule from PR #6 -- those classes no longer exist.) */
+@media (max-width: 420px) {
+  .modebar {
+    gap: 2.4rem;
+  }
+  .modeitem {
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+  }
+  .cmdrow,
+  .cmdgo {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+  .dothint {
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+  }
+  /* Two clocks plus a label is a lot for a narrow screen. Tighter tracking
+     and a smaller gap keep the row on one line rather than wrapping, which
+     would make the split look like a layout bug. */
+  .readout {
+    --rgap: 0.38rem;
+    font-size: 0.63rem;
+    letter-spacing: 0.16em;
+  }
+  /* The three-column rows stop being rows. A 5.5rem label column next to a
+     bar next to a duration does not fit, and squeezing it makes the bars
+     too short to read as proportions. */
+  .msrspan {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "name time"
+      "bar  bar";
+    gap: 0.4rem 0.6rem;
+  }
+  .msrspanname {
+    grid-area: name;
+  }
+  .msrspantime {
+    grid-area: time;
+  }
+  .msrbar {
+    grid-area: bar;
+  }
+  .msrentry {
+    grid-template-columns: 1fr auto;
+    gap: 0.35rem 0.6rem;
+  }
+  .msrmix {
+    grid-column: 1 / -1;
+  }
+  .msrbig {
+    font-size: 1.35rem;
+  }
+  .msrfoot {
+    gap: 0.6rem;
+  }
+  /* Prose does not need less line-height on a phone - it needs the same
+     rhythm at a size that fits the measure. Only the padding gives way. */
+  .phipanel {
+    padding: 1.3rem 1.15rem 1.6rem;
+  }
+  .philede {
+    font-size: 1.08rem;
+  }
+  .phisection p,
+  .philist li {
+    font-size: 0.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modeitem {
+    transition: none;
+  }
+  .modebar {
+    scroll-behavior: auto;
+  }
+  .cmdbtn,
+  .cmdtip {
+    transition: none;
+  }
+  .cmdscrim,
+  .cmdpanel {
+    animation: none;
+  }
+  .cmdgo {
+    transition: none;
+  }
+  .msrbarfill,
+  .msrbtn {
+    transition: none;
+  }
+  .firsthint {
+    animation: none;
+    opacity: 0.85;
+  }
+  /* The split still HAPPENS - the second clock is information, not
+     decoration - but it appears and leaves rather than sliding. The reel
+     itself is skipped in JS and lands straight on 0:00. */
+  .rsplit,
+  .rsplit[data-open="true"] {
+    transform: none;
+    transition: opacity 0.2s ease;
+  }
+  .rsplit {
+    max-width: 0;
+  }
+  .rsplit[data-open="true"] {
+    max-width: 8em;
+  }
+  .rsep,
+  .rsep[data-sum="true"] {
+    transform: none;
+    transition: none;
+  }
+  .rlabel {
+    transition: none;
+  }
+  /* The arming states still have to be legible without motion, so they
+     become static brightness changes rather than disappearing entirely. */
+  .modedot {
+    transition: opacity 0.2s ease;
+  }
+  .modedot[data-arm="pending"] {
+    animation: none;
+    box-shadow: 0 0 16px rgba(177, 18, 27, 1);
+  }
+  .modedot[data-arm="armed"] {
+    transform: none;
+    box-shadow: 0 0 16px rgba(177, 18, 27, 1),
+      0 0 0 4px rgba(177, 18, 27, 0.18);
+  }
+  .modedot[data-hidden="true"] {
+    transform: none;
+  }
+  /* No morph: the blob simply cross-fades in place at full size. The
+     information is identical; only the theatre is dropped. Pace still
+     applies - the slower lines keep their slower fade. */
+  .dothint,
+  .dothint[data-open="true"],
+  .dothint[data-pace="slow"],
+  .dothint[data-pace="slow"][data-open="true"] {
+    transform: none;
+  }
+  .dothint,
+  .dothint[data-open="true"] {
+    transition: opacity 0.25s ease;
+  }
+  .dothint[data-pace="slow"],
+  .dothint[data-pace="slow"][data-open="true"] {
+    transition: opacity 0.5s ease;
+  }
+}
+
+/* --- session readout ----------------------------------------------------
+   The mode name and nothing else. It used to carry a blurb beneath it
+   describing the mechanism; that explanation moved to Philosophy, where it
+   can be read deliberately instead of sitting in the corner of the eye of
+   somebody trying to work. --- */
+.session {
+  text-align: center;
+  color: var(--fg-dim);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  line-height: 1.7;
+  max-width: 34rem;
+}
+
+.session strong {
+  display: block;
+  color: var(--fg);
+  font-weight: 500;
+  font-size: 0.95rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.15rem;
+}

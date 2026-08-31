@@ -1,0 +1,85 @@
+/**
+ * The Focii mark: a stylised script capital F.
+ *
+ * Three closed cubic-Bezier contours, drawn as artwork rather than set in a
+ * font. They must be painted with the NONZERO fill rule -- the contours
+ * overlap where the bar crosses the stem, and evenodd would punch a hole
+ * there instead of unioning them.
+ *
+ * This module is the single source of the path data. Its consumers:
+ *   - components/Wordmark.tsx  the wordmark in the app chrome
+ *   - app/apple-icon.tsx       the iOS home-screen icon, rendered at build
+ *   - app/icon.svg             the favicon (a committed copy -- see below)
+ *   - generator/make_icons.py  offline PNG rendering
+ *
+ * app/icon.svg and public/brand/*.svg carry their own copy of these strings
+ * because a favicon has to be a static file and cannot import a module. They
+ * are build artefacts that happen to be committed; regenerate them with
+ * generator/make_icons.py rather than editing them by hand.
+ */
+
+/** Natural units of the artwork. The baseline of "ocii" sits at y=465. */
+export const MARK_VIEW_W = 888;
+export const MARK_VIEW_H = 750;
+
+export const MARK_PATHS = [
+  "M572.6,56C566,57.2 547.3,67.2 540.2,71.2C533.1,75.2 537,72.5 529.9,80.2C522.7,87.8 508,102.2 497.4,116.9C486.9,131.6 478.7,139.5 466.6,168.5C454.6,197.5 437.6,247.2 425.2,291C412.7,334.9 400.6,397.2 391.8,431.8C383.1,466.5 379.1,478.4 372.6,498.9C366.1,519.5 360.1,538.6 352.7,555.3C345.3,572 333.8,589.4 327.9,598.9C322.1,608.4 322.3,607.5 317.4,612.3C312.5,617 311.4,619.6 298.7,627.3C286,635 255.9,651.1 241.3,658.5C226.8,665.9 224.2,667.8 211.3,671.6C198.4,675.5 171.5,676.4 163.9,681.8C156.4,687.3 158.7,700.7 166.1,704.2C173.4,707.6 193.5,704.5 207.9,702.4C222.3,700.3 240.1,695.1 252.7,691.5C265.3,688 269,688.2 283.6,681.1C298.1,674 328.1,656.4 340.1,648.7C352,641.1 350.6,640.4 355.3,635.3C360,630.2 361.9,628.5 368.4,618C374.9,607.6 386.1,591 394.4,572.5C402.7,554 411.1,528.7 418.2,507.1C425.2,485.4 428.5,476.4 436.5,442.8C444.6,409.2 455.5,347.9 466.4,305.5C477.2,263.1 490.8,217.4 501.6,188.3C512.3,159.2 517.7,151.7 530.7,131C543.7,110.2 572.5,76.5 579.4,64C586.4,51.5 579.1,54.8 572.6,56Z",
+  "M533.5,337.2C527.5,336 511.4,335.9 498.7,336.3C486,336.7 491.8,338.4 457.1,339.5C422.3,340.6 328.6,340.6 290.2,342.7C251.8,344.8 245,348 226.7,352.2C208.3,356.3 194.3,361.3 180.1,367.4C165.9,373.6 152.2,382.1 141.5,388.9C130.8,395.7 123.6,402 116,408.2C108.5,414.5 102.3,419.7 96.2,426.5C90,433.3 85.6,439.7 79.3,449.2C73,458.6 63.4,473.8 58.4,483.2C53.5,492.5 51.8,496 49.6,505.3C47.3,514.6 45.4,527.8 44.8,539C44.3,550.2 45.3,563.4 46.3,572.4C47.2,581.4 48.5,586.3 50.5,592.8C52.6,599.4 55.2,605 58.7,611.5C62.3,618 67,625.6 71.8,631.9C76.6,638.2 74.3,638.8 87.4,649.1C100.5,659.5 137.6,685.7 150.3,694.1C163,702.5 157.7,697.9 163.6,699.5C169.5,701.1 180.9,706.6 185.7,703.7C190.4,700.8 195.1,687.2 192.1,682.2C189.1,677.3 175.9,678.5 167.7,674C159.6,669.5 154.1,665.1 143.2,655.2C132.3,645.4 110.9,624.3 102.4,614.8C93.9,605.4 95.1,604.2 92.3,598.5C89.5,592.9 87.2,590.2 85.7,581C84.1,571.7 82.7,555 82.9,543.1C83.2,531.2 83,521.6 87.1,509.6C91.3,497.6 100.6,482.3 107.7,471C114.7,459.8 121.3,451.2 129.5,442.1C137.7,433 147.2,424 156.8,416.4C166.4,408.8 177,402.1 187.4,396.5C197.7,390.9 208.5,386.8 218.9,382.9C229.3,379.1 235.9,376.3 249.7,373.4C263.6,370.5 263.4,368 301.9,365.5C340.4,362.9 447.3,359.8 480.7,358C514.2,356.3 493.8,357.5 502.7,355.1C511.6,352.7 529.1,346.8 534.3,343.8C539.4,340.8 539.4,338.5 533.5,337.2Z",
+  "M827,82.3C821.6,82.8 805.3,86.2 795.6,89C785.9,91.9 783.2,95 768.9,99.4C754.6,103.7 724.1,111.7 709.7,115.2C695.3,118.7 730.3,118.3 682.6,120.3C634.9,122.3 476.9,124.8 423.7,127.2C370.6,129.6 381,130.4 363.7,134.8C346.4,139.1 330.4,147.9 319.9,153.3C309.4,158.6 307.4,161.4 300.6,167C293.9,172.5 285,180.2 279.4,186.7C273.7,193.2 269.8,198.3 266.7,206.1C263.6,213.9 261,228.5 260.6,233.3C260.3,238 263.1,236.1 264.4,234.6C265.7,233 266.8,226.8 268.6,223.8C270.4,220.9 267.8,222.3 275,216.9C282.1,211.4 295,198.5 311.5,190.8C328,183.2 321.5,175.6 374.1,171C426.6,166.3 575.8,164.8 626.8,162.7C677.8,160.7 665.5,160.4 680.2,158.6C694.8,156.9 703,155.2 714.6,152.2C726.2,149.3 735.2,147.6 749.9,140.8C764.5,134 789.4,120.6 802.5,111.5C815.6,102.3 824.5,90.8 828.6,85.9C832.7,81.1 832.5,81.7 827,82.3Z",
+];
+
+/* --- palette, mirrored from globals.css so the icon needs no stylesheet --- */
+export const MARK_BG = "#050505"; /* --bg  */
+export const MARK_FG = "#e8e4e0"; /* --fg  */
+export const MARK_RED = "#b1121b"; /* --red */
+
+/* --- square icon geometry ------------------------------------------------
+ *
+ * The mark is centred on its INK bounding box (x 44.67..831.43,
+ * y 54.70..705.71), not on the 888x750 artwork box: the artwork box carries
+ * dead space above and below the glyph, and centring on it puts the F high
+ * and left in the square.
+ *
+ * Numbers below are for ICON_SIZE=512 and were produced by the same script
+ * that renders the PNGs. Changing ICON_SIZE alone does NOT rescale them --
+ * they are in the 512 coordinate space, which the viewBox then maps to
+ * whatever pixel size the consumer asks for. That indirection is deliberate:
+ * one set of numbers, any output size.
+ */
+export const ICON_SIZE = 512;
+export const ICON_SCALE = 0.494583;
+export const ICON_TX = 39.3484;
+export const ICON_TY = 67.9569;
+
+/**
+ * Stroke applied ON TOP of the fill to widen the glyph.
+ *
+ * Equivalent to a 3.75px dilation at 512, which is what the offline renderer
+ * applies as a MaxFilter. It is not quite identical: a stroke dilates by a
+ * disc and MaxFilter by a square, so diagonals come out a shade lighter here.
+ * Both land the stroke around 1.8px at a 28px avatar, which is the number
+ * that matters.
+ */
+export const ICON_STROKE = 15.164;
+
+/**
+ * A standalone square icon as an SVG string: dark ground, thickened mark.
+ *
+ * Returned as a string rather than JSX because its consumer is Satori, which
+ * rasterises it from a data URI at build time.
+ */
+export function iconSvg(fg: string = MARK_FG, bg: string = MARK_BG): string {
+  const paths = MARK_PATHS.map((d) => `<path d="${d}"/>`).join("");
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg"`,
+    ` viewBox="0 0 ${ICON_SIZE} ${ICON_SIZE}"`,
+    ` width="${ICON_SIZE}" height="${ICON_SIZE}">`,
+    `<rect width="${ICON_SIZE}" height="${ICON_SIZE}" fill="${bg}"/>`,
+    `<g transform="translate(${ICON_TX} ${ICON_TY}) scale(${ICON_SCALE})"`,
+    ` fill="${fg}" fill-rule="nonzero" stroke="${fg}"`,
+    ` stroke-width="${ICON_STROKE}" stroke-linejoin="round"`,
+    ` stroke-linecap="round">`,
+    paths,
+    `</g></svg>`,
+  ].join("");
+}

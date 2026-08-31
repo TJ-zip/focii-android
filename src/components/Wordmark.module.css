@@ -1,0 +1,86 @@
+/*
+  Typography for the wordmark.
+
+  These rules live on a child of .wordmark rather than on .wordmark itself.
+  The global rule sets an uppercase, wide-tracked, 0.7rem treatment for the
+  old text mark; declaring the replacement on the inner element means the
+  two never compete on specificity, and the outer class keeps doing the one
+  job it is still good at - placing the mark under the visualizer.
+*/
+
+.lockup {
+  display: inline-block;
+  /* Cambria first, as drawn. The rest of the stack is the same serif
+     fallback chain the philosophy panel uses, so a machine without
+     Cambria degrades to the face the app already trusts. */
+  font-family: Cambria, ui-serif, Georgia, "Iowan Old Style",
+    "Times New Roman", serif;
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  line-height: 1;
+  white-space: nowrap;
+
+  /*
+    How far to pull "ocii" back under the F's swash. Single knob, kept here
+    so the value can be nudged without touching the geometry comment below.
+    Less negative = more air. Measured derivation is on .mark.
+  */
+  --mark-kern: -1.15em;
+}
+
+/*
+  The F is set as an inline image on the text baseline.
+
+  An inline SVG sits with its bottom edge on the baseline, but this glyph
+  descends well below it - the loop bottoms out at y=693 of a 750 unit box
+  while the baseline is at y=465. The shift is that difference over the box
+  height, 285/750 = 0.38, times the rendered height.
+
+  The negative margin is not a fudge, it is the correct setting for a
+  calligraphic swash. The F's advance width is dictated by its top flourish,
+  which reaches x=832 of the 888 unit box. But the flourish lives entirely
+  above the x-height: measured row by row, the ink at the band the lowercase
+  letters actually occupy (y 265 to 465) stops at x=477. Left alone, "ocii"
+  is pushed clear of a stroke that is nowhere near it, opening a gap of
+  roughly 1.3em.
+
+    rendered width  = 2.4em x 888/750       = 2.842em
+    dead space      = (888-477)/888 x 2.842 = 1.315em
+    optical gap wanted                      = 0.160em
+    margin-right                            = -1.155em
+
+  Pulling the letters back lets them tuck under the flourish, which is what
+  the glyph was drawn to allow. There is no collision: at every row from
+  y=265 down, the F's ink ends left of x=477, so the "o" at x~527 sits in
+  clear space. The full box still paints - only the advance shrinks - so
+  nothing is clipped.
+*/
+.mark {
+  height: 2.4em;
+  width: auto;
+  vertical-align: -0.912em; /* 0.38 x 2.4em */
+  margin-right: var(--mark-kern);
+  overflow: visible;
+}
+
+.rest {
+  /* No inherited uppercase: the mark reads "Focii", not "FOCII". */
+  text-transform: lowercase;
+}
+
+/*
+  The second i carries the accent. --red-text is the visualizer red adjusted
+  for legibility on the near-black background; --red itself is a fill colour
+  and goes muddy at this size.
+*/
+.accent {
+  color: var(--red-text);
+}
+
+@media (max-width: 480px) {
+  .lockup {
+    font-size: 0.95rem;
+  }
+}

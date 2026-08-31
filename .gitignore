@@ -1,0 +1,28 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts.timestamp
+
+# Secrets. The APK signing keystore lives in GitHub Actions secrets and must
+# never be committed -- a leaked keystore cannot be revoked, and losing control
+# of it means losing the ability to ship updates to an installed app.
+.env
+.env.local
+.env.*.local
+*.keystore
+*.jks
+keystore.properties
+
+# Android build output, once Capacitor is added.
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+
+.DS_Store

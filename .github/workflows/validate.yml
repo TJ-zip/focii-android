@@ -1,0 +1,80 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+      - "fix/**"
+      - "refactor/**"
+      - "docs/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # First, and before Install, because it needs nothing but the node
+      # standard library. A pinned engine file that has drifted from the web app
+      # is a correctness failure worth surfacing in seconds rather than after an
+      # npm install and a Next build.
+      - name: Vendor check
+        run: node scripts/vendor.mjs --check
+
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Lint
+        run: |
+          if node -e "const s=require('./package.json').scripts||{};process.exit(s.lint?0:1)"; then
+            npm run lint
+          else
+            echo "skipped: no lint script"
+          fi
+
+      - name: Typecheck
+        run: |
+          if node -e "const s=require('./package.json').scripts||{};process.exit(s.typecheck?0:1)"; then
+            npm run typecheck
+          else
+            echo "skipped: no typecheck script"
+          fi
+
+      - name: Test
+        run: |
+          if node -e "const s=require('./package.json').scripts||{};process.exit(s.test?0:1)"; then
+            npm test
+          else
+            echo "skipped: no test script"
+          fi
+
+      - name: Build (mandatory)
+        run: |
+          node -e "const s=require('./package.json').scripts||{};if(!s.build){console.error('missing build script');process.exit(1)}"
+          npm run build
+
+      # There is no `next start` to smoke-test against: output: "export" makes
+      # it invalid. The equivalent assurance here is reading what was actually
+      # written into out/ -- see scripts/check-export.mjs for why a green build
+      # is not sufficient evidence of a working icon.
+      - name: Check export
+        run: npm run check:export
