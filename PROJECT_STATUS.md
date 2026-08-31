@@ -50,9 +50,11 @@ answer sizes task 4.
 
 ## Current task
 
-Task 3, the touch gesture layer, on `feature/touch-gestures`. It exists because
-the first-run hint read "press space to begin" on a phone — an instruction the
-device cannot follow.
+None in progress. Task 3, the touch gesture layer, was squash-merged to `main`
+as `55ba8f9` and production now serves the gesture map. The next move is task 4,
+but it is worth waiting for the owner's phone report first: task 4 is
+MediaSession and wake lock, and how much of it is needed depends on what screen
+lock currently does to the audio — which nobody has yet observed.
 
 ## Pending tasks
 
@@ -62,13 +64,17 @@ In deliberate order — each depends on the previous being confirmed.
    `bbfa256`; Vercel connected and serving production from `main`.
 2. **Static icon.** Replace the request-time `apple-icon.tsx` with a PNG
    generated from `src/lib/mark.ts`; add Android mipmap densities.
-3. **Touch gesture layer** — implemented, see below. Keyboard bindings kept in
-   full: the same build runs in a desktop browser on Vercel.
-4. **MediaSession + wake lock + a visible pause state.**
-5. **User tests on their phone** via the Vercel preview.
+3. **Touch gesture layer** — **done.** PR #3 squash-merged as `55ba8f9`.
+   Keyboard bindings kept in full: the same build runs in a desktop browser on
+   Vercel. Design and thresholds are recorded below.
+4. **MediaSession + wake lock + a visible pause state.** While `page.tsx` is
+   open for this, collapse the dead `.cmdtip` ternary and guard the tip timers
+   on `coarse` — see Known issues.
+5. **User tests on their phone** via the Vercel deployment.
 6. **Capacitor + foreground service + signed APK** from Actions. Keystore in
    Actions secrets, never in the repository. Universal **release APK** for
-   sideloading — not an AAB, which only the Play Store consumes.
+   sideloading — not an AAB, which only the Play Store consumes. **Blocked on
+   the Application ID decision** under Distribution.
 
 ## Known issues
 
@@ -93,9 +99,10 @@ In deliberate order — each depends on the previous being confirmed.
   `react-jsx` and adds `.next/dev/types/**/*.ts` to `include`. CI stages only
   named paths, so this is not committed and does not fail anything — but it
   means the committed `tsconfig.json` is not quite what the build uses.
-- **Two branches cannot be deleted from this session** — no tool exists for it.
-  `fix/prove-vendor-drift-fails` (PR #2) contains a deliberately corrupted file
-  and **must never be merged**; `feature/android-scaffold` is merged and spent.
+- **Three branches cannot be deleted from this session** — no tool exists for
+  it. `fix/prove-vendor-drift-fails` (PR #2) contains a deliberately corrupted
+  file and **must never be merged**; `feature/android-scaffold` and
+  `feature/touch-gestures` are both merged and spent.
 
 ## Gesture design (implemented)
 
@@ -163,7 +170,9 @@ Open, to settle before task 6:
   the Next.js preset is selected breaks the build. No serverless functions
   appear, which is correct under `output: 'export'`.
 - The agent has no Vercel tooling in this session and can only see deployment
-  results through the Vercel bot's PR comment or the owner's report.
+  results through the Vercel bot's PR comment or the owner's report. A push to
+  `main` produces no PR, so **production deployments are invisible to the
+  agent** — they have to be confirmed by the owner.
 
 ## Important architectural decisions
 
@@ -249,9 +258,20 @@ By GitHub Actions (`CI report`, commit `0bbbbee`): `vendor --fetch` fetched all
 22 files at the pin; `vendor --check` passed; `npm install`, `typecheck`,
 `build` and `check:export` all exited 0.
 
-By GitHub Actions (`validate`, commit `671d074`): success in 31 s, i.e. it ran
-past the vendor check and built. `touch.css` is not vendored, so the tip removal
-could not disturb the pin.
+By GitHub Actions (`validate`, commits `671d074` and `86bb732`, the last two on
+`feature/touch-gestures`): both concluded **success**, i.e. each ran past the
+vendor check and built. `touch.css` is not vendored, so the tip removal could
+not disturb the pin. Note what `validate` does **not** cover: the repository
+declares no `lint` and no `test` script, so no test has ever run here and none
+should be claimed.
+
+On the merge of PR #3 (squash commit `55ba8f9`): the three files that differ
+from `main`'s previous state were compared by blob sha against the tree
+`validate` passed on `86bb732` — `touch.css` `4096289c…`, `page.tsx`
+`65970d06…`, `layout.tsx` `de7c7e7e…` — and are identical. So what is on `main`
+is the tree that built. **Unread:** the `validate` conclusion for `55ba8f9`
+itself and the production Vercel deployment, because this session has no tool
+that reads check runs for a commit outside a pull request.
 
 The vendor drift check was proven to **fail closed**, not assumed to:
 `src/app/icon.svg` was changed by one character (`#050505` → `#050506`) on
@@ -262,13 +282,13 @@ opened only to make that conclusion readable and must never be merged.
 
 Still not verified: that audio plays, that any gesture does what it is supposed
 to on a real finger, or what screen lock does. Of the gesture table above, the
-only thing a human has reported is what the corner looked like.
+only thing a human has reported is what the corner looked like — and the fix for
+that has itself only been verified as *built*, not as *seen*.
 
 ## Last completed change
 
-Removed the command-corner tip on touch devices (`src/app/touch.css`). The
-first thing a real phone told us about this branch was that the pill under
-"Command" wrapped to three lines and hung off the corner; it is now not drawn
-at all on a coarse pointer, and the recall flash that was its only trigger
-there is suppressed with it. Desktop keeps the hover tip and `Shift + C`
-unchanged.
+PR #3 squash-merged to `main` as `55ba8f9`: the touch gesture layer, including
+the removal of the command-corner tip on coarse pointers. Production serves the
+gesture map from `main`. The vendor workflow then ran on `main` and committed
+`ae05690`, which touches `vendor.lock.json` only — two lines, re-recording
+`ModeDot.tsx` and `CommandCenter.tsx` under their new forked mode.
