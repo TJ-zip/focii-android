@@ -1,0 +1,139 @@
+/*
+ * Scoped styles for SkipPrompt.
+ *
+ * A CSS module rather than another entry in globals.css. globals.css is past
+ * 26 KB and can only be written whole, which makes every append a chance to
+ * break a rule nowhere near the change -- and a CSS typo passes lint, passes
+ * the type checker, passes the build, and only shows up on screen. Components
+ * added from here own their styling.
+ */
+
+/*
+ * The line.
+ *
+ * A flex row rather than inline text, for two reasons. It centres the mode
+ * name and the red word as one block, so the pair drifts left as the word
+ * opens instead of the name sitting still and the word growing off to the
+ * right. And a flex item takes its baseline from its content even when it
+ * clips its overflow -- an inline-block with `overflow: hidden` does not, it
+ * takes its baseline from its bottom margin edge, which would drop the red
+ * word below the white one by a descender.
+ *
+ * Everything typographic is inherited: this element sets no font, no size, no
+ * weight, no tracking and no case, so the word is guaranteed to match the
+ * mode name it sits beside even if that changes.
+ */
+.row {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  width: 100%;
+}
+
+.name {
+  white-space: nowrap;
+}
+
+/*
+ * The collapsing box.
+ *
+ * Closed, it is exactly zero wide -- the gap before the word lives inside the
+ * button's padding, so a closed offer leaves no hole after the mode name.
+ *
+ * Opening is slower than closing (950ms against 620ms), and gently eased. It
+ * should read as the line making room for a thought, not as an element
+ * arriving. `max-width` is animatable where `width: auto` is not; the content
+ * never reaches the bound.
+ */
+.wrap {
+  display: inline-flex;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    max-width 620ms cubic-bezier(0.4, 0, 0.7, 0.4),
+    opacity 380ms ease,
+    /* held until the collapse has finished, so the word is not deleted
+       mid-withdrawal */
+    visibility 0s linear 620ms;
+}
+
+.wrap[data-on="true"] {
+  max-width: 8em;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    max-width 950ms cubic-bezier(0.2, 0.8, 0.25, 1),
+    opacity 950ms ease,
+    visibility 0s linear 0s;
+}
+
+/*
+ * The word itself. No border, no background, no radius, no padding box: it is
+ * type, and the only thing separating it from the mode name is colour.
+ *
+ * --red-text rather than --red. --red is tuned for a glowing 6px dot and is
+ * close to unreadable as small type on #050505; --red-text is the same hue
+ * lifted until it is legible, and is what the split clock already uses.
+ */
+.word {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  margin: 0;
+  /* The whole gap between the two words. Inside the clipping box, so it
+     collapses with it. */
+  padding: 0 0 0 0.5em;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: inherit;
+  color: var(--red-text, #cf5058);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: text-shadow 420ms ease, opacity 260ms ease;
+}
+
+/*
+ * Hover and focus glow rather than change colour. Brightening would take it
+ * towards the white of the mode name, which is the one distinction the whole
+ * design rests on; darkening towards --red would make it harder to read.
+ */
+.word:hover,
+.word:focus-visible {
+  text-shadow: 0 0 18px rgba(177, 18, 27, 0.9);
+}
+
+/* Circle-ended, like every other focus ring and every other shape here. */
+.word:focus-visible {
+  outline: 1px solid var(--red, #b1121b);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+.word:active {
+  opacity: 0.72;
+}
+
+/*
+ * Reduced motion. The offer still appears and still withdraws -- it would be
+ * useless if it could not be seen to change -- but it does so by opacity
+ * alone, with the width snapping. The line still re-centres; it simply does
+ * it in one step.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .wrap {
+    max-width: 0;
+    transition: opacity 200ms ease, visibility 0s linear 200ms;
+  }
+  .wrap[data-on="true"] {
+    max-width: 8em;
+    transition: opacity 200ms ease, visibility 0s linear 0s;
+  }
+  .word {
+    transition: none;
+  }
+}

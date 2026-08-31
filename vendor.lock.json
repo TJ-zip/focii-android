@@ -1,0 +1,120 @@
+{
+  "upstream": {
+    "owner": "TJ-zip",
+    "repo": "soundscape-v1-temp",
+    "ref": "f03e1030fe59d12b744d0378ae1db2cf3c5d8e22"
+  },
+  "generated": "2026-08-31T15:20:12.893Z",
+  "files": {
+    "src/audio/engine.ts": {
+      "mode": "pinned",
+      "upstream_sha256": "f20183f1071eabf943f4577f87d75db3ca7bbcb3c8a5f29fba546c5dbfd73a37",
+      "local_sha256": "f20183f1071eabf943f4577f87d75db3ca7bbcb3c8a5f29fba546c5dbfd73a37"
+    },
+    "src/audio/presets.ts": {
+      "mode": "pinned",
+      "upstream_sha256": "224504a21bde6956c85e110c50b3ce716965d76f933282c90aaf827f8ef0521b",
+      "local_sha256": "224504a21bde6956c85e110c50b3ce716965d76f933282c90aaf827f8ef0521b"
+    },
+    "src/lib/mark.ts": {
+      "mode": "pinned",
+      "upstream_sha256": "2bf06e64db57388ecedb3fe1e5e0ff480121cc7ad763803a4ddb6d43a5389ff7",
+      "local_sha256": "2bf06e64db57388ecedb3fe1e5e0ff480121cc7ad763803a4ddb6d43a5389ff7"
+    },
+    "src/lib/sessions.ts": {
+      "mode": "pinned",
+      "upstream_sha256": "4e55a3cd969212eb20c0ddfa7a895a3be0627d957d2254db5551eaf38f580047",
+      "local_sha256": "4e55a3cd969212eb20c0ddfa7a895a3be0627d957d2254db5551eaf38f580047"
+    },
+    "src/lib/storage.ts": {
+      "mode": "pinned",
+      "upstream_sha256": "a1cfe14425f9b640a8f929180b3bc86ee7f1b827c5409e1d4a0f996c4e33d824",
+      "local_sha256": "a1cfe14425f9b640a8f929180b3bc86ee7f1b827c5409e1d4a0f996c4e33d824"
+    },
+    "src/lib/useDialogFocus.ts": {
+      "mode": "pinned",
+      "upstream_sha256": "7fcd43028c9e106e5a6407122e943afea721dbf561a1c60dc5795f795e4f7ff8",
+      "local_sha256": "7fcd43028c9e106e5a6407122e943afea721dbf561a1c60dc5795f795e4f7ff8"
+    },
+    "src/components/Blackout.module.css": {
+      "mode": "pinned",
+      "upstream_sha256": "7d07c5482022a46c63577dadcacf4096a38aa23234a85204728a791f38be08c6",
+      "local_sha256": "7d07c5482022a46c63577dadcacf4096a38aa23234a85204728a791f38be08c6"
+    },
+    "src/components/Blackout.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "f2e8c147e0d7c0e063c1ce980f2cfbe56f7e90e61a974da81d77e742bf13ed52",
+      "local_sha256": "f2e8c147e0d7c0e063c1ce980f2cfbe56f7e90e61a974da81d77e742bf13ed52"
+    },
+    "src/components/CommandCenter.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "47b22a1edf7c741fbe38539fa7ab7cc9370a3dd69c7931e909ae8804bf9a2620",
+      "local_sha256": "47b22a1edf7c741fbe38539fa7ab7cc9370a3dd69c7931e909ae8804bf9a2620"
+    },
+    "src/components/MeasurePane.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "9a5d669d7bf00ee5fda83ab4d3c101d1a0a4c58490596db245c13136b008b904",
+      "local_sha256": "9a5d669d7bf00ee5fda83ab4d3c101d1a0a4c58490596db245c13136b008b904"
+    },
+    "src/components/ModeDot.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "f4c5fd4f600dde1cb7c2f88762b645880a064ef2e7ca5bbd0bffa51c25614793",
+      "local_sha256": "f4c5fd4f600dde1cb7c2f88762b645880a064ef2e7ca5bbd0bffa51c25614793"
+    },
+    "src/components/Philosophy.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "5a3403cb0f97c2324e17d0e1cecd284fd71e087cbe6e2ffb8187e3225bda60ca",
+      "local_sha256": "5a3403cb0f97c2324e17d0e1cecd284fd71e087cbe6e2ffb8187e3225bda60ca"
+    },
+    "src/components/SessionClock.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "66f8f6e89d6463bf672a6c96c60d2835a9af8b81ede679cedc6c435afb3cc9d1",
+      "local_sha256": "66f8f6e89d6463bf672a6c96c60d2835a9af8b81ede679cedc6c435afb3cc9d1"
+    },
+    "src/components/SkipPrompt.module.css": {
+      "mode": "pinned",
+      "upstream_sha256": "3b427b4785a60668700587091bf0cac8a03dabec6c14c07c3d6acc52ca367786",
+      "local_sha256": "3b427b4785a60668700587091bf0cac8a03dabec6c14c07c3d6acc52ca367786"
+    },
+    "src/components/SkipPrompt.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "e05aeaa4f111bcc73c89fe36b5aa1aba72d10db91782f05ac033fff275c6471d",
+      "local_sha256": "e05aeaa4f111bcc73c89fe36b5aa1aba72d10db91782f05ac033fff275c6471d"
+    },
+    "src/components/Visualizer.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "e1240b17941bdcf0574a4862ca0a0f05b78b1fc166bd8df0da44fffe2553d8ff",
+      "local_sha256": "e1240b17941bdcf0574a4862ca0a0f05b78b1fc166bd8df0da44fffe2553d8ff"
+    },
+    "src/components/Wordmark.module.css": {
+      "mode": "pinned",
+      "upstream_sha256": "678e8beb7428373025e7908971c81159dcbf6e07e9de49dc28f8ab9c529bab15",
+      "local_sha256": "678e8beb7428373025e7908971c81159dcbf6e07e9de49dc28f8ab9c529bab15"
+    },
+    "src/components/Wordmark.tsx": {
+      "mode": "pinned",
+      "upstream_sha256": "15e23e852dc6f0d5d8a04a318ebbae1afc7edd96921311c3c4f492deaefe6f7a",
+      "local_sha256": "15e23e852dc6f0d5d8a04a318ebbae1afc7edd96921311c3c4f492deaefe6f7a"
+    },
+    "src/app/icon.svg": {
+      "mode": "pinned",
+      "upstream_sha256": "5f87b6d3cfa8d19242c300054bf250d27b8859fcbf78ff9c77ffe5721a528e75",
+      "local_sha256": "5f87b6d3cfa8d19242c300054bf250d27b8859fcbf78ff9c77ffe5721a528e75"
+    },
+    "src/app/layout.tsx": {
+      "mode": "forked",
+      "upstream_sha256": "9d1c73aa64ce54261b669a05a0a40c4e2e146199260e7618a556d353f3486629",
+      "local_sha256": "9d1c73aa64ce54261b669a05a0a40c4e2e146199260e7618a556d353f3486629"
+    },
+    "src/app/globals.css": {
+      "mode": "forked",
+      "upstream_sha256": "adfb5aeec83bfc90674695e0c4997b362fe41c5f3701737298c556a6828cd3dd",
+      "local_sha256": "adfb5aeec83bfc90674695e0c4997b362fe41c5f3701737298c556a6828cd3dd"
+    },
+    "src/app/page.tsx": {
+      "mode": "forked",
+      "upstream_sha256": "9ca028dd2fcb67b3a0c971bba7dcfb828702bc53f6c1b82e1bfbaac6f6ab49ce",
+      "local_sha256": "9ca028dd2fcb67b3a0c971bba7dcfb828702bc53f6c1b82e1bfbaac6f6ab49ce"
+    }
+  }
+}
