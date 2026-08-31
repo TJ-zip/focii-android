@@ -1,0 +1,166 @@
+# Builds an installable Android APK.
+#
+# The sandbox that authors this repository has no network and no Android SDK,
+# so nothing below can be verified by reading it. This workflow IS the build --
+# a green run here is the only evidence that an APK exists.
+#
+# What it produces: a DEBUG-signed universal APK. Debug-signed, not unsigned,
+# because an unsigned APK cannot be installed on a phone at all; and not
+# release-signed, because that needs a keystore in Actions secrets which does
+# not exist yet (names are listed in PROJECT_STATUS.md). A debug APK installs
+# and runs identically for sideloading purposes -- it is simply signed with the
+# throwaway key the Android SDK generates, so a future release-signed build will
+# NOT upgrade it in place. Uninstall first when that day comes.
+
+name: APK
+
+on:
+  push:
+    branches:
+      - 'feature/capacitor-apk'
+      - 'release/apk**'
+  workflow_dispatch:
+
+# Needed for two things, both narrow: committing back a package-lock.json that
+# CI regenerated (this sandbox cannot write a lockfile -- integrity hashes come
+# from the registry and cannot be invented), and publishing the APK as a release
+# asset so it can be downloaded onto a phone by URL.
+#
+# There is no pull_request trigger and no pull_request_target: a write-token
+# workflow must never run code from a fork.
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Java 21: Capacitor 7 ships Android Gradle Plugin 8.7.x, which refuses to
+      # run on Java 17 or below.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Fail loudly and early rather than 10 minutes into a Gradle run with an
+      # opaque "SDK location not found".
+      - name: Verify Android SDK is present on the runner
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -z "$SDK" ] || [ ! -d "$SDK" ]; then
+            echo "No Android SDK on this runner (ANDROID_HOME/ANDROID_SDK_ROOT unset)."
+            exit 1
+          fi
+          echo "Android SDK: $SDK"
+          ls "$SDK/platforms" || true
+
+      - name: Vendor check
+        run: node scripts/vendor.mjs --check
+
+      # `npm ci` is the reproducible path and is tried first. It fails hard when
+      # package.json declares a dependency the lockfile has never seen -- which
+      # is exactly the state of the first Capacitor build. The fallback is a real
+      # install that resolves and writes the lockfile, which is then committed
+      # back so every later run takes the `npm ci` path. This is a lockfile
+      # bootstrap, not an error being swallowed: if `npm install` also fails, the
+      # step fails.
+      - name: Install
+        run: |
+          if npm ci --no-audit --no-fund; then
+            echo "lockfile-in-sync"
+          else
+            echo "::warning::package-lock.json out of sync with package.json - regenerating"
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Commit regenerated lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfile unchanged."
+          else
+            git commit -m "chore: lockfile for capacitor deps [skip ci]"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build static export
+        run: npm run build
+
+      - name: Check export
+        run: npm run check:export
+
+      # Generated fresh every run -- see .gitignore for why it is not committed.
+      - name: Generate Android project
+        run: npx cap add android
+
+      - name: Copy web assets into the Android project
+        run: npx cap sync android
+
+      # Proof the WebView will actually have something to load. `cap sync`
+      # succeeding does not by itself mean index.html landed in the APK's asset
+      # directory, and an empty WebView is a black screen with no error.
+      - name: Verify web assets were copied
+        run: |
+          ASSETS=android/app/src/main/assets/public
+          test -f "$ASSETS/index.html" || { echo "index.html missing from $ASSETS"; exit 1; }
+          echo "Files copied into the APK: $(find "$ASSETS" -type f | wc -l)"
+
+      - name: Assemble debug APK
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Collect the APK
+        id: collect
+        run: |
+          SRC=$(find android/app/build/outputs/apk -name '*.apk' | head -n 1)
+          if [ -z "$SRC" ]; then echo "No APK was produced."; exit 1; fi
+          mkdir -p dist-apk
+          NAME="focii-${GITHUB_SHA::7}-debug.apk"
+          cp "$SRC" "dist-apk/$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "path=dist-apk/$NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "dist-apk/$NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: focii-apk
+          path: dist-apk/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # An artifact can only be downloaded from the Actions UI while signed in,
+      # which is awkward on a phone. A prerelease asset has a plain URL that a
+      # phone browser can open directly.
+      - name: Publish as a prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="apk-${GITHUB_SHA::7}"
+          gh release view "$TAG" >/dev/null 2>&1 && gh release delete "$TAG" --yes --cleanup-tag
+          gh release create "$TAG" "${{ steps.collect.outputs.path }}" \
+            --title "Focii debug APK (${GITHUB_SHA::7})" \
+            --prerelease \
+            --notes "Debug-signed universal APK built from \`${GITHUB_REF_NAME}\` at \`${GITHUB_SHA}\`.
+
+          Sideload: enable \"install unknown apps\" for your browser or file manager, then open the .apk.
+
+          Not yet implemented: background audio survival under screen lock (needs a foreground service). Debug signing key, so a future release-signed build will not upgrade this in place."
+          echo "Release: $(gh release view "$TAG" --json url --jq .url)"
