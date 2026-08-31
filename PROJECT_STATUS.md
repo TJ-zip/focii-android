@@ -80,6 +80,15 @@ In deliberate order — each depends on the previous being confirmed.
   problem for the APK target — it is how we will know the fix worked.
 - **`apple-icon.tsx` cannot be vendored.** Satori rasterises at request time; a
   static export has no request. Tracked as task 2.
+- **A dead string in `page.tsx`.** The command-corner tip is removed in CSS,
+  which takes it out of the layout but not out of the markup: the ternary
+  `coarse ? "Swipe up from the bottom" : "Shift + C"` still renders the touch
+  copy into a `display: none`, `aria-hidden` span, and the `TIP_DELAY` /
+  `TIP_HOLD` timers still fire on touch with nothing to show. Invisible and
+  unannounced, so it is tidiness rather than a defect — but the ternary should
+  collapse to the keyboard string and the effect should take `coarse` as a
+  guard. Task 4 edits `page.tsx` anyway; do it there rather than reflowing a
+  1,500-line file for a one-line change.
 - **Next rewrites `tsconfig.json` during the build.** It sets `jsx` to
   `react-jsx` and adds `.next/dev/types/**/*.ts` to `include`. CI stages only
   named paths, so this is not committed and does not fail anything — but it
@@ -209,6 +218,20 @@ Open, to settle before task 6:
   janky. Every listener in the recogniser is passive and none call
   `preventDefault`; a gesture whose finger spread changes by more than 60 px is
   simply abandoned to the browser.
+- **The command-corner tip is removed on touch, not restyled** (2026-08-31,
+  owner report from a real phone). `.cmdtip` is a hover affordance: a
+  single-line pill absolutely positioned under the word "Command" and pinned to
+  the right edge, a shape that works because `SHIFT + C` is five characters.
+  A phone has no hover, so the only thing that ever opened it there was the
+  recall flash the app fires at itself — and the touch copy is a sentence, so
+  the pill wrapped to three lines and hung out of the corner. An earlier
+  `max-width` rule tried to make the sentence fit; that produced the wrap.
+  Deleting it costs nothing, because the gesture is already taught in two
+  better places: the dot hint sequence ends on "Swipe up from the bottom", and
+  the command centre lists it as a `.cmdgesture` pill. The word remains a
+  button, which is a more direct affordance than the tip was. The
+  `data-flash` brightening is suppressed with it — a corner that lights up to
+  reveal nothing reads as a twitch.
 
 ## Verified in this repo
 
@@ -226,6 +249,10 @@ By GitHub Actions (`CI report`, commit `0bbbbee`): `vendor --fetch` fetched all
 22 files at the pin; `vendor --check` passed; `npm install`, `typecheck`,
 `build` and `check:export` all exited 0.
 
+By GitHub Actions (`validate`, commit `671d074`): success in 31 s, i.e. it ran
+past the vendor check and built. `touch.css` is not vendored, so the tip removal
+could not disturb the pin.
+
 The vendor drift check was proven to **fail closed**, not assumed to:
 `src/app/icon.svg` was changed by one character (`#050505` → `#050506`) on
 throwaway branch `fix/prove-vendor-drift-fails` (commit `591f77d`). `validate`
@@ -234,13 +261,14 @@ died at the vendor check, before `npm install`, exactly as designed. PR #2 was
 opened only to make that conclusion readable and must never be merged.
 
 Still not verified: that audio plays, that any gesture does what it is supposed
-to on a real finger, or what screen lock does. No gesture in the table above has
-been performed by a human.
+to on a real finger, or what screen lock does. Of the gesture table above, the
+only thing a human has reported is what the corner looked like.
 
 ## Last completed change
 
-Touch gesture layer on `feature/touch-gestures`: three new files
-(`useCoarsePointer.ts`, `useTouchGestures.ts`, `touch.css`), `ModeDot` and
-`CommandCenter` moved pinned → forked and taught to speak in gestures, and
-`page.tsx` wired to route recognised gestures into the same callbacks the
-keyboard already used.
+Removed the command-corner tip on touch devices (`src/app/touch.css`). The
+first thing a real phone told us about this branch was that the pill under
+"Command" wrapped to three lines and hung off the corner; it is now not drawn
+at all on a coarse pointer, and the recall flash that was its only trigger
+there is suppressed with it. Desktop keeps the hover tip and `Shift + C`
+unchanged.
