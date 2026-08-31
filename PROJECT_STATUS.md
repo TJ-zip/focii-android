@@ -15,20 +15,24 @@ package to APK only once the app behaves correctly in a mobile browser.
 Single Next.js static export (`output: 'export'`) serving two targets:
 
 - **Vercel** — continuous testing on a real device.
-- **Capacitor APK** — the same `out/` inside a WebView, plus a foreground
-  service for background audio.
+- **Capacitor APK** — the same `out/` inside a WebView. The foreground service
+  for background audio is **not built yet**.
 
 `src/` is vendored from `TJ-zip/soundscape-v1-temp` at a pinned commit and
 hash-verified. Application code is byte-identical between targets; the
 divergence is entirely in the five forked files plus three new files that do not
 exist upstream at all.
 
+The Android project (`android/`) is **generated in CI, not committed**. See the
+decision and its cost below.
+
 ## Technology stack
 
 - Next.js 16.3.0 (App Router, `output: 'export'`), React 19, TypeScript 5.6
 - Web Audio API + Canvas 2D. No audio or graphics dependencies.
 - Node 22 in CI, npm
-- Capacitor — **not yet added**
+- Capacitor 7 (`@capacitor/core`, `@capacitor/android`, `@capacitor/cli`),
+  Java 21 in CI, Gradle wrapper from the Capacitor template
 
 ## Working features
 
@@ -48,11 +52,16 @@ The app is live on Vercel from `main` and has been opened on the owner's phone.
 **Not yet reported: whether audio plays, or what screen lock does to it.** That
 answer sizes task 4.
 
+**An installable APK now exists.** `APK` workflow, commit `bbd6831` on
+`feature/capacitor-apk`: `focii-bbd6831-debug.apk`, 4,315,571 bytes, sha256
+`cf9d8dfcd8e3f848cccbb44acda8e6b23d08343fae347e1c3ec819307c9fa55f`, published as
+prerelease `apk-bbd6831`. Debug-signed, so it installs; nobody has yet reported
+installing or opening it.
+
 ## Current task
 
-Task 3, the touch gesture layer, on `feature/touch-gestures`. It exists because
-the first-run hint read "press space to begin" on a phone — an instruction the
-device cannot follow.
+Task 6a — packaging — done and open as PR #4, stacked on PR #3. Awaiting the
+owner's first install report. Task 6b, the foreground service, is untouched.
 
 ## Pending tasks
 
@@ -61,23 +70,32 @@ In deliberate order — each depends on the previous being confirmed.
 1. **Scaffold + vendor + green build** — **done.** PR #1 squash-merged as
    `bbfa256`; Vercel connected and serving production from `main`.
 2. **Static icon.** Replace the request-time `apple-icon.tsx` with a PNG
-   generated from `src/lib/mark.ts`; add Android mipmap densities.
-3. **Touch gesture layer** — implemented, see below. Keyboard bindings kept in
-   full: the same build runs in a desktop browser on Vercel.
+   generated from `src/lib/mark.ts`; add Android mipmap densities. Until this
+   lands the APK carries the **default Capacitor launcher icon**, which is the
+   most visible unfinished thing about it.
+3. **Touch gesture layer** — implemented, see below.
 4. **MediaSession + wake lock + a visible pause state.**
 5. **User tests on their phone** via the Vercel preview.
-6. **Capacitor + foreground service + signed APK** from Actions. Keystore in
-   Actions secrets, never in the repository. Universal **release APK** for
-   sideloading — not an AAB, which only the Play Store consumes.
+6. **Capacitor + foreground service + signed APK.** Split, because the halves
+   have different blockers:
+   - **6a — packaging.** **Done.** Debug-signed APK from Actions.
+   - **6b — foreground service + release signing.** Not started. Needs a
+     keystore in Actions secrets and a native patch step (see the `android/`
+     decision). This is the half that delivers the product objective.
 
 ## Known issues
 
-- **Absolute asset paths — 11 of them, measured.** `check:export` counts
-  `href="/…"` / `src="/…"` references in `index.html`; the current build has
-  **11**. Harmless on Vercel; under a WebView on `file://` a leading slash
-  resolves to the device root. The Capacitor step will need `assetPrefix` or
-  relative rewriting. The count is reported, not failed, because it is only a
-  problem for the APK target — it is how we will know the fix worked.
+- **The APK does not survive screen lock.** No foreground service exists, so
+  Android suspends the WebView and the audio with it. The APK is currently a
+  packaged copy of the web app, not an improvement on it.
+- **Default launcher icon** in the APK — task 2.
+- **Debug signing key.** A future release-signed build will not upgrade this
+  install in place; it must be uninstalled first, which wipes app storage.
+- **Absolute asset paths — 11 of them, measured — do not affect this target.**
+  Capacitor serves `out/` from `https://localhost` through its local server, so
+  `/_next/…` resolves against the server root rather than the device root. The
+  earlier note here assumed `file://`. `check:export` still counts them,
+  because the count is the alarm if the scheme ever changes.
 - **`apple-icon.tsx` cannot be vendored.** Satori rasterises at request time; a
   static export has no request. Tracked as task 2.
 - **A dead string in `page.tsx`.** The command-corner tip is removed in CSS,
@@ -85,14 +103,14 @@ In deliberate order — each depends on the previous being confirmed.
   `coarse ? "Swipe up from the bottom" : "Shift + C"` still renders the touch
   copy into a `display: none`, `aria-hidden` span, and the `TIP_DELAY` /
   `TIP_HOLD` timers still fire on touch with nothing to show. Invisible and
-  unannounced, so it is tidiness rather than a defect — but the ternary should
-  collapse to the keyboard string and the effect should take `coarse` as a
-  guard. Task 4 edits `page.tsx` anyway; do it there rather than reflowing a
-  1,500-line file for a one-line change.
+  unannounced, so it is tidiness rather than a defect. Task 4 edits `page.tsx`
+  anyway; do it there.
 - **Next rewrites `tsconfig.json` during the build.** It sets `jsx` to
   `react-jsx` and adds `.next/dev/types/**/*.ts` to `include`. CI stages only
   named paths, so this is not committed and does not fail anything — but it
   means the committed `tsconfig.json` is not quite what the build uses.
+- **System back is still not wired to Escape.** It was deferred out of task 3 as
+  a WebView concern; the WebView now exists, so it belongs to 6b.
 - **Two branches cannot be deleted from this session** — no tool exists for it.
   `fix/prove-vendor-drift-fails` (PR #2) contains a deliberately corrupted file
   and **must never be merged**; `feature/android-scaffold` is merged and spent.
@@ -128,31 +146,37 @@ Two gestures needed no new code at all: double-tap-to-leave-a-screen was already
 phone has neither Shift nor Escape — and tapping the red word already worked
 through `SkipPrompt`.
 
-Deliberately **not** implemented: system back as Escape. It is a WebView concern
-and belongs with Capacitor in task 6, not in the browser build.
-
 ## Required environment variables
 
 None. The app makes no network calls and holds no secrets.
 
-APK signing will later require Actions **secrets** (names only, values never
-committed): `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
-`ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+Release signing (task 6b) will require Actions **secrets** (names only, values
+never committed): `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. None exist yet, which is why the
+current artifact is debug-signed.
 
 ## Distribution
 
-Sideload. The signed APK is produced by a GitHub Actions run and downloaded to
-the device; the phone needs "install unknown apps" enabled for whichever app
-receives the file. Not published anywhere.
+Sideload. The APK is produced by a GitHub Actions run (`apk.yml`) and published
+twice: as a run artifact, and as a **prerelease asset**, because an artifact can
+only be downloaded while signed in to the Actions UI and a phone browser wants a
+plain URL.
 
-Open, to settle before task 6:
+The phone needs "install unknown apps" enabled for whichever app receives the
+file.
 
-- **Application ID** — permanent. Changing it later is a different app as far as
-  Android is concerned: separate install, no upgrade path. Proposal:
-  `app.focii.mobile`. **Still unanswered; this blocks task 6.**
-- **`targetSdk`.** No Play deadline applies when sideloading, but Android itself
-  refuses to install apps targeting an old API on current devices, so this
-  tracks the latest stable regardless.
+Settled:
+
+- **Application ID: `app.focii.mobile`** (2026-08-31). Permanent — Android
+  identifies an app by this string, so changing it later is a different app:
+  separate install, no upgrade path, storage wiped.
+
+Still open:
+
+- **`targetSdk`** is whatever the Capacitor 7 template sets. No Play deadline
+  applies when sideloading, but Android refuses to install apps targeting an old
+  API on current devices, so this should be read off a build and pinned
+  deliberately rather than inherited.
 
 ## Deployment information
 
@@ -164,6 +188,8 @@ Open, to settle before task 6:
   appear, which is correct under `output: 'export'`.
 - The agent has no Vercel tooling in this session and can only see deployment
   results through the Vercel bot's PR comment or the owner's report.
+- APK: `.github/workflows/apk.yml`, on push to `feature/capacitor-apk` or
+  `release/apk**`, or on manual dispatch.
 
 ## Important architectural decisions
 
@@ -182,12 +208,31 @@ Open, to settle before task 6:
   −3.32 %), and the `bus`/`out` gain split that removed the mode-change click.
 - **`vendor.yml` validates its own commit.** `GITHUB_TOKEN` commits do not
   trigger workflows; upstream recorded this exact trap biting `measure.yml`.
+- **The Android project is generated in CI, not committed** (2026-08-31).
+  `android/` is template output plus `capacitor.config.ts`; committing ~200
+  files it would create a second source of truth that drifts from the config
+  meant to define it. **The cost is real and must not be forgotten: native
+  customisation — the foreground service, launcher icons, manifest permissions,
+  the back-button handler — cannot be hand-edited into a directory that is
+  deleted on every run.** When 6b lands, it arrives as a scripted patch step in
+  `apk.yml`, or this decision is reversed and `android/` is committed. It cannot
+  be both, and a half-applied version of it would produce an APK whose native
+  behaviour depends on whether the runner had a cached directory.
+- **Debug-signed first, release-signed later.** An unsigned APK cannot be
+  installed at all, so "unsigned until the keystore exists" was never an option;
+  the real choice was between a debug key now and no artifact until secrets are
+  configured. Accepted consequence: the eventual release build will not upgrade
+  this one in place.
+- **The lockfile is generated by CI and committed back.** This sandbox cannot
+  write one — integrity hashes come from the registry and cannot be inferred, so
+  a handwritten lockfile would be a fabrication. `apk.yml` tries `npm ci` first
+  and falls back to `npm install` only when the lockfile predates a dependency,
+  then commits the result.
 - **Distribution is sideload, not the Play Store** (owner decision,
   2026-08-31). Consequences, all accepted: we self-sign, so there is no Play App
-  Signing escrow and **losing the keystore means no user can upgrade in place** —
-  a new signing key forces uninstall/reinstall, which wipes app storage. There
-  is no auto-update channel, so a new build means re-sending an APK. No review,
-  no store listing, no data-safety form. The artifact is a universal release
+  Signing escrow and **losing the keystore means no user can upgrade in place**.
+  There is no auto-update channel, so a new build means re-sending an APK. No
+  review, no store listing, no data-safety form. The artifact is a universal
   APK; an AAB would be dead weight.
 - **Sideloading changes none of the runtime requirements.** Android enforces
   `FOREGROUND_SERVICE_MEDIA_PLAYBACK` and the Android 13+ runtime
@@ -200,38 +245,23 @@ Open, to settle before task 6:
   The pin protects tuned constants that cannot be recovered by reading code.
   What these two hold is *words* — the hint sequence and the shortcut list —
   and every one of those words names a key that does not exist on the target
-  device. Keeping them pinned would have meant the app being unable to describe
-  itself. Now 17 pinned, 5 forked. `vendor.mjs check()` reads `mode` from the
-  manifest rather than the lock, so the move required no re-fetch.
+  device. Now 17 pinned, 5 forked.
 - **All Android-only CSS lives in `src/app/touch.css`**, which does not exist
   upstream and is therefore absent from the manifest. `globals.css` is marked
   forked but is still byte-identical to upstream, deliberately: the less the
-  forked files actually differ, the cheaper a future re-vendor is. Same reason
-  the two new hooks are their own files rather than additions to existing ones.
+  forked files actually differ, the cheaper a future re-vendor is.
 - **Begin is a single tap, not a double.** An `AudioContext` may only be created
   inside a user gesture, and waiting ~300 ms to rule out a second finger spends
-  that activation — the session would fail to start. Verified that `startAudio`
-  constructs the engine with no preceding `await`, so calling it from a passive
-  `touchend` listener preserves user activation.
-- **Pinch is declined, not blocked.** Suppressing zoom would fail WCAG 1.4.4,
-  and a non-passive `touchmove` on window would make the scroll-snap mode bar
-  janky. Every listener in the recogniser is passive and none call
-  `preventDefault`; a gesture whose finger spread changes by more than 60 px is
-  simply abandoned to the browser.
+  that activation.
+- **Pinch is declined, not blocked.** Suppressing zoom would fail WCAG 1.4.4.
+  Every listener in the recogniser is passive and none call `preventDefault`; a
+  gesture whose finger spread changes by more than 60 px is abandoned to the
+  browser.
 - **The command-corner tip is removed on touch, not restyled** (2026-08-31,
-  owner report from a real phone). `.cmdtip` is a hover affordance: a
-  single-line pill absolutely positioned under the word "Command" and pinned to
-  the right edge, a shape that works because `SHIFT + C` is five characters.
-  A phone has no hover, so the only thing that ever opened it there was the
-  recall flash the app fires at itself — and the touch copy is a sentence, so
-  the pill wrapped to three lines and hung out of the corner. An earlier
-  `max-width` rule tried to make the sentence fit; that produced the wrap.
-  Deleting it costs nothing, because the gesture is already taught in two
-  better places: the dot hint sequence ends on "Swipe up from the bottom", and
-  the command centre lists it as a `.cmdgesture` pill. The word remains a
-  button, which is a more direct affordance than the tip was. The
-  `data-flash` brightening is suppressed with it — a corner that lights up to
-  reveal nothing reads as a twitch.
+  owner report from a real phone). `.cmdtip` is a hover affordance; the touch
+  copy is a sentence, so the pill wrapped to three lines and hung out of the
+  corner. The gesture is already taught in two better places, and the word
+  itself remains a button.
 
 ## Verified in this repo
 
@@ -241,34 +271,38 @@ By local execution in the authoring sandbox (Node 24), before any push:
   `/etc/shadow; rm -rf /`, and a bogus mode — all **before** any fetch or write.
 - `vendor.mjs --check` with no lockfile exits 1 with an actionable message.
 - `ci-report.mjs` rejects `rm -rf /`, `typecheck && curl … | sh`, `$(whoami)`,
-  `../../etc/passwd` and undeclared script names, spawning nothing. A canary file
-  survived. It correctly reports a passing script, a failing script, a
-  launch failure, and excerpts a 500-line log.
+  `../../etc/passwd` and undeclared script names, spawning nothing.
 
 By GitHub Actions (`CI report`, commit `0bbbbee`): `vendor --fetch` fetched all
 22 files at the pin; `vendor --check` passed; `npm install`, `typecheck`,
 `build` and `check:export` all exited 0.
 
-By GitHub Actions (`validate`, commit `671d074`): success in 31 s, i.e. it ran
-past the vendor check and built. `touch.css` is not vendored, so the tip removal
-could not disturb the pin.
+By GitHub Actions (`validate`, commit `671d074`): success in 31 s.
+
+By GitHub Actions (`APK`, commit `bbd6831`): the Android SDK check, vendor
+check, install, typecheck, `next build`, `check:export`, `cap add android`,
+`cap sync android`, the assets-copied assertion and `gradlew assembleDebug` all
+succeeded, and the release asset was uploaded. Evidence that the run reached the
+end: prerelease `apk-bbd6831` exists and carries a 4,315,571-byte
+`focii-bbd6831-debug.apk`. The workflow fails the job if no APK is found or if
+`index.html` is missing from the packaged assets, so neither an empty APK nor an
+empty WebView could have produced that asset.
 
 The vendor drift check was proven to **fail closed**, not assumed to:
-`src/app/icon.svg` was changed by one character (`#050505` → `#050506`) on
-throwaway branch `fix/prove-vendor-drift-fails` (commit `591f77d`). `validate`
-concluded **failure in 5 s** — against 24–27 s for the passing runs, i.e. it
-died at the vendor check, before `npm install`, exactly as designed. PR #2 was
-opened only to make that conclusion readable and must never be merged.
+`src/app/icon.svg` was changed by one character on throwaway branch
+`fix/prove-vendor-drift-fails` (commit `591f77d`). `validate` concluded
+**failure in 5 s** — against 24–31 s for the passing runs, i.e. it died at the
+vendor check, before `npm install`. PR #2 exists only to make that conclusion
+readable and must never be merged.
 
 Still not verified: that audio plays, that any gesture does what it is supposed
-to on a real finger, or what screen lock does. Of the gesture table above, the
-only thing a human has reported is what the corner looked like.
+to on a real finger, what screen lock does, and **whether the APK installs or
+opens**. A built APK is a file, not a working app.
 
 ## Last completed change
 
-Removed the command-corner tip on touch devices (`src/app/touch.css`). The
-first thing a real phone told us about this branch was that the pill under
-"Command" wrapped to three lines and hung off the corner; it is now not drawn
-at all on a coarse pointer, and the recall flash that was its only trigger
-there is suppressed with it. Desktop keeps the hover tip and `Shift + C`
-unchanged.
+Added Capacitor packaging (`capacitor.config.ts`, `apk.yml`, `android/`
+ignored) and produced the first installable artifact: debug-signed, 4.1 MB,
+published as prerelease `apk-bbd6831`. The application ID is settled at
+`app.focii.mobile`. Background audio under screen lock — the product objective —
+remains unimplemented and is now tracked as task 6b.

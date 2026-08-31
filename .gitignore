@@ -18,11 +18,21 @@ next-env.d.ts.timestamp
 *.jks
 keystore.properties
 
-# Android build output, once Capacitor is added.
-android/app/build/
-android/build/
-android/.gradle/
-android/local.properties
-android/app/src/main/assets/public/
+# The Capacitor Android project is GENERATED, not authored. `cap add android`
+# writes it from the @capacitor/android template plus capacitor.config.ts, and
+# apk.yml regenerates it on every run. Committing ~200 template files would
+# create a second source of truth that drifts silently from the config that is
+# supposed to define it.
+#
+# This has one real cost, stated plainly: native customisation -- the
+# foreground service for background audio, custom icons, manifest permissions --
+# cannot be hand-edited into a directory that is deleted every build. When that
+# work lands it must arrive as a scripted patch step in apk.yml, or this
+# decision must be reversed and android/ committed. It cannot be both.
+android/
+
+# APK output, in case a build is ever run outside CI.
+*.apk
+*.aab
 
 .DS_Store

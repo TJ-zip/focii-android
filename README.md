@@ -97,6 +97,44 @@ npm run build       # -> out/
 npm run check:export
 ```
 
+## The APK
+
+The APK is the same `out/` loaded into a Capacitor WebView. `app.focii.mobile`,
+configured in `capacitor.config.ts`.
+
+It is built by `.github/workflows/apk.yml` - on push to `feature/capacitor-apk`
+or `release/apk**`, or by manual dispatch - and published two ways: as a run
+artifact, and as a **prerelease asset**, because an artifact needs a signed-in
+Actions UI and a phone wants a plain URL.
+
+To install: enable "install unknown apps" for your browser or file manager, open
+the release, download the `.apk`, tap it.
+
+Three things about it that are not obvious:
+
+- **`android/` is generated, not committed.** `cap add android` writes it from
+  the template plus `capacitor.config.ts` on every run. The cost, stated where
+  it will be read - in `.gitignore` and `PROJECT_STATUS.md` - is that native
+  customisation cannot be hand-edited into a directory that is deleted every
+  build. It has to arrive as a scripted patch step, or the decision has to be
+  reversed.
+- **The APK is debug-signed.** Not unsigned - an unsigned APK will not install
+  at all - but signed with the SDK's throwaway key, because no release keystore
+  exists yet. A future release-signed build will not upgrade it in place.
+- **The absolute asset paths counted by `check:export` are harmless here.**
+  Capacitor serves the web directory from `https://localhost`, so `/_next/…`
+  resolves against the server root. The count is still measured, because it
+  becomes fatal the day the scheme is not that.
+
+To build it locally instead, with Java 21 and the Android SDK installed:
+
+```bash
+npm run build
+npx cap add android     # first time only
+npm run cap:sync
+cd android && ./gradlew assembleDebug
+```
+
 ## Verification
 
 This project is authored in an environment with no package manager and no
@@ -113,6 +151,9 @@ code** - every such claim cites a GitHub Actions run.
   the full stdout/stderr of the listed scripts is committed to
   `ci-reports/latest.md`. A run conclusion says *that* something failed; this
   says *why*.
+- **`apk.yml`** - builds the APK. It fails if no APK is produced, and fails
+  earlier if `index.html` did not reach the packaged assets, because an empty
+  WebView is a black screen with no error message.
 
 `ci-request.txt` selects from scripts already declared in `package.json`. It
 cannot introduce a shell command - names are filtered against
@@ -132,7 +173,12 @@ honestly:
 |---|---|
 | Vercel + Android Chrome | Usually keeps playing **if** MediaSession is wired. Browser policy, not a contract - the OS may still reclaim it. |
 | Vercel + iOS Safari | Suspends the AudioContext. Not fixable from the web. |
-| APK + foreground service | An actual guarantee. |
+| APK + foreground service | An actual guarantee - **and not built yet.** |
+
+That last row is the product objective and it is still unimplemented. The
+current APK has no foreground service, so the OS suspends its WebView like any
+other. Packaging came first because it is what the gesture work needed to be
+tested against; it did not deliver the guarantee.
 
 MediaSession is therefore wired early rather than saved for APK polish: it is
 the same code on both targets, and it is where pause/play must live for headset
