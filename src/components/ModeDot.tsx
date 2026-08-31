@@ -27,10 +27,28 @@ export type HintScope = "short" | "full";
  * nothing, and a question asked again deserves answering again. Lines two and
  * three are onboarding, and those do retire.
  */
-const STEPS = [
+export const KEY_STEPS = [
   "To pause, press P",
   "Want it seamless?",
   "Press Shift + C",
+] as const;
+
+/**
+ * The same three beats for a device with no keyboard. ANDROID FORK.
+ *
+ * Same structure, same order, same purpose - only the instruction changes,
+ * because the question being answered is identical. A phone user taps, the
+ * session carries on, and they ask the screen why. "Press P" is not an answer
+ * to that question; it is not even a thing they can do.
+ *
+ * Deliberately phrased as the gesture rather than as a key name in disguise.
+ * "Two-finger tap" is a thing hands do. "Press P (two fingers)" would be an
+ * apology for the desktop build.
+ */
+export const TOUCH_STEPS = [
+  "To pause, tap with two fingers",
+  "Want it seamless?",
+  "Swipe up from the bottom",
 ] as const;
 
 /** How long each line stays up, ms. The middle one is a beat, not a read. */
@@ -63,10 +81,26 @@ interface Props {
    */
   run: number;
   scope: HintScope;
+  /**
+   * Which copy to speak. ANDROID FORK: the web app hardcodes the keyboard
+   * lines, because it only has one kind of user. This build serves a desktop
+   * browser and a phone from the same bundle and cannot know which until it
+   * is running, so the copy is a prop rather than a constant.
+   *
+   * Defaulted, so every existing call site keeps its current behaviour and
+   * the difference stays visible at exactly one place in the page.
+   */
+  steps?: readonly string[];
   onFinish?: () => void;
 }
 
-export default function ModeDot({ arm, run, scope, onFinish }: Props) {
+export default function ModeDot({
+  arm,
+  run,
+  scope,
+  steps = KEY_STEPS,
+  onFinish,
+}: Props) {
   const [step, setStep] = useState(-1);
   const [shown, setShown] = useState(false);
   const timers = useRef<number[]>([]);
@@ -74,6 +108,9 @@ export default function ModeDot({ arm, run, scope, onFinish }: Props) {
   // Read, never depended on: changing scope must not restart a running
   // sequence, and `run` is the only thing allowed to schedule.
   const scopeRef = useRef(scope);
+  // Same reasoning for the copy. A device that switched from mouse to touch
+  // mid-sequence would otherwise restart the hint under the user's hand.
+  const stepsRef = useRef(steps);
 
   useEffect(() => {
     finishRef.current = onFinish;
@@ -82,6 +119,10 @@ export default function ModeDot({ arm, run, scope, onFinish }: Props) {
   useEffect(() => {
     scopeRef.current = scope;
   }, [scope]);
+
+  useEffect(() => {
+    stepsRef.current = steps;
+  }, [steps]);
 
   useEffect(() => {
     const clearAll = () => {
@@ -95,7 +136,7 @@ export default function ModeDot({ arm, run, scope, onFinish }: Props) {
       return;
     }
 
-    const lines = scopeRef.current === "full" ? STEPS.length : 1;
+    const lines = scopeRef.current === "full" ? stepsRef.current.length : 1;
 
     // One flat schedule rather than a chain of nested callbacks: every
     // timeout id lands in the same array, so a cancel is one sweep and there
@@ -108,7 +149,9 @@ export default function ModeDot({ arm, run, scope, onFinish }: Props) {
           setShown(true);
         }, t)
       );
-      t += HOLD[i];
+      // Clamped rather than indexed directly, so a copy set of a different
+      // length than HOLD cannot schedule a timeout for `undefined` ms.
+      t += HOLD[Math.min(i, HOLD.length - 1)];
       timers.current.push(window.setTimeout(() => setShown(false), t));
       t += GAP;
     }
@@ -140,7 +183,7 @@ export default function ModeDot({ arm, run, scope, onFinish }: Props) {
           data-open={open ? "true" : "false"}
           data-pace={paceOf(Math.max(step, 0))}
         >
-          {step >= 0 ? STEPS[step] : ""}
+          {step >= 0 ? steps[step] : ""}
         </span>
       </div>
       <span

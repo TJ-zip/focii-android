@@ -1,0 +1,98 @@
+/* ANDROID FORK -- styles that exist only because this build is touched.
+   ------------------------------------------------------------------------
+   Kept in its own file, imported after globals.css, rather than merged into
+   it. Two reasons, both about the next person:
+
+   1. globals.css is vendored from the web app. Every line added to it is a
+      line somebody has to diff by eye the next time upstream changes. This
+      file has no upstream, so it can never conflict.
+   2. The whole of the Android divergence in CSS is one file. "What did the
+      phone need that the web app did not?" is answerable by reading it, not
+      by hunting through nine hundred lines of shared styles.
+
+   Nothing here is inside a media query unless it is genuinely conditional on
+   the input device. The command centre rules key off `data-touch`, which the
+   component sets from the same runtime check the gesture layer uses, so the
+   copy and the layout can never disagree about which device this is. */
+
+/* --- gesture pills in the command centre ---------------------------------
+   A gesture is not a key. <kbd> means "the user presses this on an input
+   device" and is drawn as a keycap; a keycap around the words "Swipe up from
+   the bottom" reads as a joke about a very large keyboard. So gestures get a
+   pill in the same column instead -- same weight, same alignment, no cap. It
+   borrows the red of .cmdtip and .dothint, because those are already the two
+   places the app speaks to the user about how to drive it. */
+.cmdgesture {
+  font-size: 0.63rem;
+  line-height: 1.5;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg);
+  background: rgba(177, 18, 27, 0.14);
+  border: 1px solid rgba(177, 18, 27, 0.42);
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem;
+}
+
+/* The key column is 8.5rem, which is exactly right for SHIFT + C and far too
+   narrow for a sentence. On the gesture list the row stops being two columns
+   and becomes two stacked lines at every width, not only on a small screen. */
+.cmdlist[data-touch="true"] .cmdrow,
+.cmdlist[data-touch="true"] .cmdgo {
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  align-items: start;
+}
+
+/* --- touch targets -------------------------------------------------------
+   WCAG 2.5.8 asks for 24 by 24 CSS pixels. The mode names are 0.78rem type
+   with no padding, which is a comfortable click target for a cursor and a
+   frustrating one for a thumb. Padding rather than a min-height, so the
+   scroll-snap centre of each item does not move and the label still lands
+   over the dot. Scoped to devices that actually need it -- growing the bar on
+   a desktop would loosen a layout that is already correct there. */
+@media (hover: none) and (pointer: coarse) {
+  .modeitem {
+    padding: 0.42rem 0.15rem;
+  }
+
+  .cmdclose {
+    padding: 0.4rem 0.65rem;
+  }
+
+  .cmdbtn {
+    padding: 0.6rem 0.5rem;
+  }
+
+  /* --- the command-corner tip: gone on touch ----------------------------
+     .cmdtip is a hover affordance. It is absolutely positioned under the
+     word "Command", pinned to the right edge of the viewport, and drawn as
+     a single-line pill -- a shape that only works because SHIFT + C is five
+     characters long.
+
+     A phone has no hover, so the only thing that ever opened it here was
+     the recall flash (`data-flash`), which the app fires at itself. On this
+     device the copy is a whole sentence, so that pill wrapped to three
+     lines and pushed itself out of the corner: an unrequested notice, badly
+     placed, naming a gesture the user had already been told twice.
+
+     Because it is told twice. The dot hint sequence ends on "Swipe up from
+     the bottom" (TOUCH_STEPS), and the command centre lists the same
+     gesture as a .cmdgesture pill. So this is removed rather than made to
+     fit -- there is no information here that is not somewhere better.
+
+     The word stays. It is a button, and tapping it opens the panel, which
+     is a more direct affordance than the tip ever was.
+
+     Both rules are needed. The first takes the pill out of the layout; the
+     second stops the flash brightening a word that now has nothing to
+     reveal, which would read as the corner twitching for no reason. */
+  .cmdtip {
+    display: none;
+  }
+
+  .cmdbtn[data-flash="true"] {
+    color: var(--fg-dim);
+    text-shadow: none;
+  }
+}

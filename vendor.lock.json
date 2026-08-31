@@ -4,7 +4,7 @@
     "repo": "soundscape-v1-temp",
     "ref": "f03e1030fe59d12b744d0378ae1db2cf3c5d8e22"
   },
-  "generated": "2026-08-31T16:00:39.898Z",
+  "generated": "2026-08-31T16:19:49.441Z",
   "files": {
     "src/audio/engine.ts": {
       "mode": "pinned",
@@ -46,20 +46,10 @@
       "upstream_sha256": "f2e8c147e0d7c0e063c1ce980f2cfbe56f7e90e61a974da81d77e742bf13ed52",
       "local_sha256": "f2e8c147e0d7c0e063c1ce980f2cfbe56f7e90e61a974da81d77e742bf13ed52"
     },
-    "src/components/CommandCenter.tsx": {
-      "mode": "pinned",
-      "upstream_sha256": "47b22a1edf7c741fbe38539fa7ab7cc9370a3dd69c7931e909ae8804bf9a2620",
-      "local_sha256": "47b22a1edf7c741fbe38539fa7ab7cc9370a3dd69c7931e909ae8804bf9a2620"
-    },
     "src/components/MeasurePane.tsx": {
       "mode": "pinned",
       "upstream_sha256": "9a5d669d7bf00ee5fda83ab4d3c101d1a0a4c58490596db245c13136b008b904",
       "local_sha256": "9a5d669d7bf00ee5fda83ab4d3c101d1a0a4c58490596db245c13136b008b904"
-    },
-    "src/components/ModeDot.tsx": {
-      "mode": "pinned",
-      "upstream_sha256": "f4c5fd4f600dde1cb7c2f88762b645880a064ef2e7ca5bbd0bffa51c25614793",
-      "local_sha256": "f4c5fd4f600dde1cb7c2f88762b645880a064ef2e7ca5bbd0bffa51c25614793"
     },
     "src/components/Philosophy.tsx": {
       "mode": "pinned",
@@ -101,10 +91,20 @@
       "upstream_sha256": "5f87b6d3cfa8d19242c300054bf250d27b8859fcbf78ff9c77ffe5721a528e75",
       "local_sha256": "5f87b6d3cfa8d19242c300054bf250d27b8859fcbf78ff9c77ffe5721a528e75"
     },
+    "src/components/CommandCenter.tsx": {
+      "mode": "forked",
+      "upstream_sha256": "47b22a1edf7c741fbe38539fa7ab7cc9370a3dd69c7931e909ae8804bf9a2620",
+      "local_sha256": "43d255ea9291791e7940a0e62818e7c675a91193ac06de5cb0f44baea7bf6597"
+    },
+    "src/components/ModeDot.tsx": {
+      "mode": "forked",
+      "upstream_sha256": "f4c5fd4f600dde1cb7c2f88762b645880a064ef2e7ca5bbd0bffa51c25614793",
+      "local_sha256": "231df796ed590d4b3e1e259b39ad3284cb3a9a9c61c0a8d23be933ab917d3982"
+    },
     "src/app/layout.tsx": {
       "mode": "forked",
       "upstream_sha256": "9d1c73aa64ce54261b669a05a0a40c4e2e146199260e7618a556d353f3486629",
-      "local_sha256": "9d1c73aa64ce54261b669a05a0a40c4e2e146199260e7618a556d353f3486629"
+      "local_sha256": "52ce8bf1fa790881a98e24452679a33a937767e18c759d5a4f70f6e285ca392a"
     },
     "src/app/globals.css": {
       "mode": "forked",

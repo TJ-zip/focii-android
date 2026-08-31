@@ -11,7 +11,11 @@ import Visualizer, { type VisualMode } from "../components/Visualizer";
 import CommandCenter from "../components/CommandCenter";
 import MeasurePane from "../components/MeasurePane";
 import Philosophy from "../components/Philosophy";
-import ModeDot, { type ArmState, type HintScope } from "../components/ModeDot";
+import ModeDot, {
+  TOUCH_STEPS,
+  type ArmState,
+  type HintScope,
+} from "../components/ModeDot";
 import SkipPrompt, {
   SKIP_AT_SHIFT,
   SKIP_AT_START,
@@ -37,6 +41,8 @@ import {
   type LiveSession,
 } from "../lib/sessions";
 import { KEYS, ensureMigrated } from "../lib/storage";
+import { useCoarsePointer } from "../lib/useCoarsePointer";
+import { useTouchGestures, type Gesture } from "../lib/useTouchGestures";
 
 type Mode = VisualMode;
 
@@ -195,6 +201,18 @@ function isActivatable(el: Element | null): boolean {
 }
 
 export default function Home() {
+  /**
+   * ANDROID FORK. Whether this device is driven by a finger.
+   *
+   * It changes two things and deliberately not a third. It changes which
+   * gestures are LISTENED for, and it changes every string that names an
+   * input. It does NOT disable the keyboard map: the same bundle is served
+   * from Vercel to desktop browsers, and a build that answered the phone by
+   * going deaf on the laptop would be a regression, not a port.
+   */
+  const coarse = useCoarsePointer();
+  const coarseRef = useRef(false);
+
   const [mode, setMode] = useState<Mode>("focus");
   const modeRef = useRef<Mode>("focus");
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -330,6 +348,13 @@ export default function Home() {
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  // Mirrored for toggleScreen, which announces the way back out of a screen
+  // and must name a gesture the user actually has. It is a `useCallback([])`
+  // by design -- the announcement text must not be a reason to rebind it.
+  useEffect(() => {
+    coarseRef.current = coarse;
+  }, [coarse]);
 
   useEffect(() => {
     hintRunRef.current = hintRun;
@@ -754,10 +779,18 @@ export default function Home() {
       return;
     }
     setScreen(kind);
+    // The announcement is the ONLY instruction for getting back out - the
+    // sheet itself is deliberately blank. So it has to name something the
+    // device in the user's hand can do. Reading "press Shift plus B" to
+    // somebody holding a phone, on a screen showing nothing, is how an app
+    // traps a person inside a feature.
+    const out = coarseRef.current
+      ? "Double tap to come back."
+      : kind === "black"
+        ? "Press Shift plus B, or Escape, or double click, to come back."
+        : "Press Shift plus W, or Escape, or double click, to come back.";
     setAnnounce(
-      kind === "black"
-        ? "Blackout. The session is still playing. Press Shift plus B, or Escape, or double click, to come back."
-        : "Whiteout. The session is still playing. Press Shift plus W, or Escape, or double click, to come back."
+      `${kind === "black" ? "Blackout" : "Whiteout"}. The session is still playing. ${out}`
     );
   }, []);
 
@@ -894,6 +927,103 @@ export default function Home() {
     setPhilosophyOpen(false);
     setCommandOpen(true);
   }, []);
+
+  /**
+   * ANDROID FORK. The measurement pane, opened from the command centre.
+   *
+   * On a keyboard Measure is Shift + M and the panel only has to name the
+   * chord. There is no touch gesture for it, so on a phone this is the only
+   * door: without it the pane is unreachable on Android. It follows the same
+   * one-panel-at-a-time rule as everything else.
+   */
+  const openMeasure = useCallback(() => {
+    cancelHints(true);
+    setCommandOpen(false);
+    setPhilosophyOpen(false);
+    setMeasureOpen(true);
+  }, [cancelHints]);
+
+  // --- touch gestures -------------------------------------------------------
+
+  /**
+   * ANDROID FORK. The finger equivalent of the key handler below.
+   *
+   * Written as one switch over recognised intent rather than as a second
+   * state machine: `useTouchGestures` does the geometry, this decides what it
+   * means, and the two must not both hold opinions about the app.
+   *
+   * The guard order matters and mirrors the keyboard's:
+   *
+   *  1. A dialog owns its own input. It has a scrim to tap and a cross to
+   *     press; a background tap must not reach through it and start audio.
+   *  2. Behind a screen, only the two-finger swipes still mean anything.
+   *     Tapping does not begin a session you cannot see, and the command
+   *     centre does not open underneath an opaque sheet. (Coming back out is
+   *     a double tap, handled by the sheet itself.)
+   *  3. The mode bar is a scroll-snap strip, not background. A tap that lands
+   *     on it is aimed at it.
+   */
+  const onGesture = useCallback(
+    (gesture: Gesture, target: EventTarget | null) => {
+      const el = target instanceof Element ? target : null;
+
+      if (modalOpen) return;
+
+      if (gesture === "twoFingerSwipeDown" || gesture === "twoFingerSwipeUp") {
+        toggleScreen(gesture === "twoFingerSwipeDown" ? "black" : "white");
+        return;
+      }
+
+      if (screenRef.current) return;
+
+      if (gesture === "edgeSwipeUp") {
+        if (commandOpen) closeAll();
+        else openCommand();
+        return;
+      }
+
+      if (el?.closest(".modebar")) return;
+
+      if (gesture === "twoFingerTap") {
+        cancelHints(true);
+        pauseAudio();
+        return;
+      }
+
+      // A tap on a real control is that control's business. Without this,
+      // pressing "Command" would open the panel AND start the session, and
+      // tapping the red word would skip the ramp AND start the session.
+      if (
+        el?.closest(
+          'button, a, input, textarea, select, label, [role="dialog"], [role="radio"]'
+        )
+      ) {
+        return;
+      }
+
+      const engine = engineRef.current;
+      if (engine && engine.running) {
+        // The same dead-space answer Space gets: tap, tap, tap, and the dot
+        // explains that a tap is not how you stop it.
+        noteDeadSpace();
+        return;
+      }
+      void startAudio();
+    },
+    [
+      cancelHints,
+      closeAll,
+      commandOpen,
+      modalOpen,
+      noteDeadSpace,
+      openCommand,
+      pauseAudio,
+      startAudio,
+      toggleScreen,
+    ]
+  );
+
+  useTouchGestures(coarse, onGesture);
 
   // Center of an item in the track's CONTENT coordinates.
   // Measured with bounding rects, so it does not depend on which ancestor
@@ -1266,7 +1396,7 @@ export default function Home() {
         >
           Command
           <span className="cmdtip" aria-hidden="true">
-            Shift + C
+            {coarse ? "Swipe up from the bottom" : "Shift + C"}
           </span>
         </button>
       </div>
@@ -1275,8 +1405,10 @@ export default function Home() {
         open={commandOpen}
         onClose={() => setCommandOpen(false)}
         onOpenPhilosophy={openPhilosophy}
+        onOpenMeasure={openMeasure}
         onBlackout={() => screenFromPanel("black")}
         onWhiteout={() => screenFromPanel("white")}
+        touch={coarse}
       />
 
       <Philosophy open={philosophyOpen} onClose={closePhilosophy} />
@@ -1319,7 +1451,17 @@ export default function Home() {
             first-time visitor how to begin. It never returns once they have. */}
         {!playing && !hasStarted && (
           <p className="firsthint">
-            press <kbd>space</kbd> to begin
+            {coarse ? (
+              // ANDROID FORK. No <kbd>: there is no key. The word "anywhere"
+              // is doing real work - the tap target is the whole background,
+              // and a first-time user should not be hunting for a button
+              // that was deliberately never drawn.
+              <>tap anywhere to begin</>
+            ) : (
+              <>
+                press <kbd>space</kbd> to begin
+              </>
+            )}
           </p>
         )}
 
@@ -1352,6 +1494,9 @@ export default function Home() {
           arm={armState}
           run={hintRun}
           scope={hintScope}
+          // ANDROID FORK. Same three beats, named for a hand. Undefined on a
+          // keyboard device, which leaves the component on its own default.
+          steps={coarse ? TOUCH_STEPS : undefined}
           onFinish={finishHints}
         />
       </div>
