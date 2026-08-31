@@ -1,0 +1,97 @@
+name: Vendor
+
+# Fetches the shared sources from the web app and commits them here.
+#
+# The authoring environment has no network egress, so these files cannot be
+# copied in by hand from there -- and hand-copying 190 KB of source would be a
+# transcription risk anyway, on files whose whole value is exact constants.
+# Actions has egress, so it does the fetching, and vendor.lock.json records the
+# sha256 of everything it took.
+#
+# This job also installs and builds afterwards, deliberately. A commit made with
+# GITHUB_TOKEN triggers no further workflow, so the vendored commit would
+# otherwise sit unvalidated: Validate would never see it. Building here closes
+# that gap in the same run.
+
+on:
+  push:
+    paths:
+      - 'vendor.manifest.json'
+      - 'scripts/vendor.mjs'
+      - '.github/workflows/vendor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vendor-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Fetch vendored sources
+        run: node scripts/vendor.mjs --fetch
+
+      - name: Verify what was fetched
+        run: node scripts/vendor.mjs --check
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Only stage paths that exist. `git add` errors with "pathspec did
+          # not match any files" otherwise, and on the first run there is no
+          # lockfile yet -- which would fail the job before anything was built.
+          for p in src vendor.lock.json package-lock.json; do
+            if [ -e "$p" ]; then git add -A "$p"; fi
+          done
+          if git diff --cached --quiet; then
+            echo "Nothing changed; vendored tree already matches upstream."
+          else
+            git commit -m "Vendor shared sources from the web app
+
+          Fetched by .github/workflows/vendor.yml from the ref pinned in
+          vendor.manifest.json. Hashes recorded in vendor.lock.json."
+            git push
+          fi
+
+      # Everything below proves the vendored tree is buildable, not merely
+      # present. npm install (not ci) on purpose: no lockfile exists on the
+      # first run, and a lockfile carries registry integrity hashes that cannot
+      # be written by hand. CI generates it and the step above commits it, after
+      # which later runs take the npm ci path.
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Check export
+        run: npm run check:export
+
+      - name: Commit the generated lockfile
+        run: |
+          if [ -e package-lock.json ]; then git add -A package-lock.json; fi
+          if git diff --cached --quiet; then
+            echo "No lockfile change."
+          else
+            git commit -m "Add the lockfile npm generated during the vendor run"
+            git push
+          fi
