@@ -19,8 +19,9 @@ Single Next.js static export (`output: 'export'`) serving two targets:
   service for background audio.
 
 `src/` is vendored from `TJ-zip/soundscape-v1-temp` at a pinned commit and
-hash-verified. Application code is byte-identical between targets except for the
-three forked files.
+hash-verified. Application code is byte-identical between targets; the
+divergence is entirely in the five forked files plus three new files that do not
+exist upstream at all.
 
 ## Technology stack
 
@@ -43,25 +44,26 @@ The vendored tree builds and exports. Confirmed by the CI report for commit
 The export contains 26 files; `index.html` is 11.3 KB and carries
 `<link rel="icon">`; routes emitted are `/`, `/_not-found`, `/icon.svg`.
 
-**Not verified: that the app runs.** Nothing has been opened in a browser and no
-audio has been heard. A green build says the files exist, not that the app
-works — the exact distinction upstream learned the hard way on #21.
+The app is live on Vercel from `main` and has been opened on the owner's phone.
+**Not yet reported: whether audio plays, or what screen lock does to it.** That
+answer sizes task 4.
 
 ## Current task
 
-Land the scaffold. Vendoring and the build are green; awaiting a Vercel preview
-so the app can be opened on a real device.
+Task 3, the touch gesture layer, on `feature/touch-gestures`. It exists because
+the first-run hint read "press space to begin" on a phone — an instruction the
+device cannot follow.
 
 ## Pending tasks
 
 In deliberate order — each depends on the previous being confirmed.
 
-1. **Scaffold + vendor + green build** — done; PR #1 open, awaiting review and a
-   Vercel connection.
+1. **Scaffold + vendor + green build** — **done.** PR #1 squash-merged as
+   `bbfa256`; Vercel connected and serving production from `main`.
 2. **Static icon.** Replace the request-time `apple-icon.tsx` with a PNG
    generated from `src/lib/mark.ts`; add Android mipmap densities.
-3. **Touch gesture layer** on the forked `page.tsx`. Drop arming; keep keyboard
-   bindings (the same build runs in a desktop browser on Vercel).
+3. **Touch gesture layer** — implemented, see below. Keyboard bindings kept in
+   full: the same build runs in a desktop browser on Vercel.
 4. **MediaSession + wake lock + a visible pause state.**
 5. **User tests on their phone** via the Vercel preview.
 6. **Capacitor + foreground service + signed APK** from Actions. Keystore in
@@ -82,22 +84,43 @@ In deliberate order — each depends on the previous being confirmed.
   `react-jsx` and adds `.next/dev/types/**/*.ts` to `include`. CI stages only
   named paths, so this is not committed and does not fail anything — but it
   means the committed `tsconfig.json` is not quite what the build uses.
+- **Two branches cannot be deleted from this session** — no tool exists for it.
+  `fix/prove-vendor-drift-fails` (PR #2) contains a deliberately corrupted file
+  and **must never be merged**; `feature/android-scaffold` is merged and spent.
 
-## Gesture design (proposed, not yet implemented)
+## Gesture design (implemented)
 
-Arming (`ARM_WINDOW` 650 ms / `ARM_IDLE` 2500 ms) exists because arrow keys are
-ambiguous. Touch gestures are not, so arming is dropped on touch — a conclusion
-the upstream docs already support.
+Which map is live is decided at runtime by
+`matchMedia("(hover: none) and (pointer: coarse)")` — not by a build flag, and
+not by user agent. Both maps ship in the same bundle.
 
-| Gesture | Action |
-|---|---|
-| Tap | Begin |
-| Two-finger tap | Pause |
-| Horizontal swipe on mode bar | Change mode (already implemented) |
-| Swipe up from bottom edge | Command centre |
-| Two-finger swipe down / up | Blackout / whiteout |
-| Tap the red word, or double-tap | Stop settling in |
-| System back | Escape |
+| Intent | Touch | Keyboard |
+|---|---|---|
+| Begin | Tap anywhere | `Space` |
+| Pause | Two-finger tap | `P` |
+| Change mode | Drag the mode bar | `Arrow` keys (armed), `Home`, `End` |
+| Command centre | Swipe up from the bottom edge | `Shift + C` |
+| Measure | Command centre -> Measure | `Shift + M` |
+| Blackout | Two-finger swipe down | `Shift + B` |
+| Whiteout | Two-finger swipe up | `Shift + W` |
+| Leave a screen | Double tap | `Escape`, the same chord, or double click |
+| Stop settling in | Tap the red word | Tap the red word, or `Alt + K` |
+
+Arming (`ARM_WINDOW` 650 ms / `ARM_IDLE` 2500 ms) exists because a stray arrow
+key is one finger away while reading. Reaching for the mode bar is not
+ambiguous, so nothing on touch is armed — and the keyboard arming is untouched.
+
+Recogniser thresholds, in `src/lib/useTouchGestures.ts`: `TAP_SLOP` 14 px,
+`TAP_TIME` 450 ms, `SWIPE_MIN` 60 px, `EDGE` 72 px, `PINCH_TOL` 60 px,
+`AXIS_RATIO` 1.4.
+
+Two gestures needed no new code at all: double-tap-to-leave-a-screen was already
+`onDoubleClick` on `Blackout.tsx` — upstream wrote it with the comment that a
+phone has neither Shift nor Escape — and tapping the red word already worked
+through `SkipPrompt`.
+
+Deliberately **not** implemented: system back as Escape. It is a WebView concern
+and belongs with Capacitor in task 6, not in the browser build.
 
 ## Required environment variables
 
@@ -117,7 +140,7 @@ Open, to settle before task 6:
 
 - **Application ID** — permanent. Changing it later is a different app as far as
   Android is concerned: separate install, no upgrade path. Proposal:
-  `app.focii.mobile`.
+  `app.focii.mobile`. **Still unanswered; this blocks task 6.**
 - **`targetSdk`.** No Play deadline applies when sideloading, but Android itself
   refuses to install apps targeting an old API on current devices, so this
   tracks the latest stable regardless.
@@ -126,9 +149,12 @@ Open, to settle before task 6:
 
 - Repository: `TJ-zip/focii-android` (public)
 - Upstream pin: `TJ-zip/soundscape-v1-temp` @ `f03e1030fe59d12b744d0378ae1db2cf3c5d8e22`
-- Vercel: **must be connected by the repository owner.** The agent has no Vercel
-  tooling in this session and cannot verify deployments except through the
-  Vercel bot's PR comment.
+- Vercel: connected. Framework preset **Next.js**, everything else default. The
+  Output Directory must stay on the preset default — typing `out` into it while
+  the Next.js preset is selected breaks the build. No serverless functions
+  appear, which is correct under `output: 'export'`.
+- The agent has no Vercel tooling in this session and can only see deployment
+  results through the Vercel bot's PR comment or the owner's report.
 
 ## Important architectural decisions
 
@@ -161,6 +187,28 @@ Open, to settle before task 6:
   guarantee against screen lock killing audio.
 - **MediaSession is task 4, not APK polish.** Same code on both targets, and
   headset buttons need it.
+- **`ModeDot.tsx` and `CommandCenter.tsx` moved pinned → forked** (2026-08-31).
+  The pin protects tuned constants that cannot be recovered by reading code.
+  What these two hold is *words* — the hint sequence and the shortcut list —
+  and every one of those words names a key that does not exist on the target
+  device. Keeping them pinned would have meant the app being unable to describe
+  itself. Now 17 pinned, 5 forked. `vendor.mjs check()` reads `mode` from the
+  manifest rather than the lock, so the move required no re-fetch.
+- **All Android-only CSS lives in `src/app/touch.css`**, which does not exist
+  upstream and is therefore absent from the manifest. `globals.css` is marked
+  forked but is still byte-identical to upstream, deliberately: the less the
+  forked files actually differ, the cheaper a future re-vendor is. Same reason
+  the two new hooks are their own files rather than additions to existing ones.
+- **Begin is a single tap, not a double.** An `AudioContext` may only be created
+  inside a user gesture, and waiting ~300 ms to rule out a second finger spends
+  that activation — the session would fail to start. Verified that `startAudio`
+  constructs the engine with no preceding `await`, so calling it from a passive
+  `touchend` listener preserves user activation.
+- **Pinch is declined, not blocked.** Suppressing zoom would fail WCAG 1.4.4,
+  and a non-passive `touchmove` on window would make the scroll-snap mode bar
+  janky. Every listener in the recogniser is passive and none call
+  `preventDefault`; a gesture whose finger spread changes by more than 60 px is
+  simply abandoned to the browser.
 
 ## Verified in this repo
 
@@ -185,12 +233,14 @@ concluded **failure in 5 s** — against 24–27 s for the passing runs, i.e. it
 died at the vendor check, before `npm install`, exactly as designed. PR #2 was
 opened only to make that conclusion readable and must never be merged.
 
-Still not verified: that the app renders, that audio plays, or that anything
-behaves correctly on a phone. No browser has opened this build.
+Still not verified: that audio plays, that any gesture does what it is supposed
+to on a real finger, or what screen lock does. No gesture in the table above has
+been performed by a human.
 
 ## Last completed change
 
-Scaffold landed on `feature/android-scaffold` and opened as PR #1. `src/` is
-vendored at the pin, `package-lock.json` was generated by CI and committed, and
-typecheck/build/export are green. The drift check was then demonstrated to fail
-closed, and the distribution route was fixed as sideload.
+Touch gesture layer on `feature/touch-gestures`: three new files
+(`useCoarsePointer.ts`, `useTouchGestures.ts`, `touch.css`), `ModeDot` and
+`CommandCenter` moved pinned → forked and taught to speak in gestures, and
+`page.tsx` wired to route recognised gestures into the same callbacks the
+keyboard already used.
