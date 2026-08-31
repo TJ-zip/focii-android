@@ -1,0 +1,49 @@
+{
+  "$comment": [
+    "What this repo takes from the web app, and how strictly it is held.",
+    "",
+    "pinned  - must be byte-identical to upstream. These are the files whose",
+    "          value is their tuned constants, not their shape: the engine, the",
+    "          presets, the visualizer, the storage migration. Divergence here",
+    "          is a bug even when it compiles, so CI fails on it.",
+    "forked  - deliberately different on Android. The upstream hash is still",
+    "          recorded, so 'upstream has moved on' remains answerable, but",
+    "          local edits are expected and do not fail the check.",
+    "",
+    "src/app/apple-icon.tsx is absent on purpose. It is a dynamic route that",
+    "rasterises through Satori at request time, which a static export cannot do."
+  ],
+  "upstream": {
+    "owner": "TJ-zip",
+    "repo": "soundscape-v1-temp",
+    "ref": "f03e1030fe59d12b744d0378ae1db2cf3c5d8e22"
+  },
+  "files": [
+    { "path": "src/audio/engine.ts", "mode": "pinned" },
+    { "path": "src/audio/presets.ts", "mode": "pinned" },
+
+    { "path": "src/lib/mark.ts", "mode": "pinned" },
+    { "path": "src/lib/sessions.ts", "mode": "pinned" },
+    { "path": "src/lib/storage.ts", "mode": "pinned" },
+    { "path": "src/lib/useDialogFocus.ts", "mode": "pinned" },
+
+    { "path": "src/components/Blackout.module.css", "mode": "pinned" },
+    { "path": "src/components/Blackout.tsx", "mode": "pinned" },
+    { "path": "src/components/CommandCenter.tsx", "mode": "pinned" },
+    { "path": "src/components/MeasurePane.tsx", "mode": "pinned" },
+    { "path": "src/components/ModeDot.tsx", "mode": "pinned" },
+    { "path": "src/components/Philosophy.tsx", "mode": "pinned" },
+    { "path": "src/components/SessionClock.tsx", "mode": "pinned" },
+    { "path": "src/components/SkipPrompt.module.css", "mode": "pinned" },
+    { "path": "src/components/SkipPrompt.tsx", "mode": "pinned" },
+    { "path": "src/components/Visualizer.tsx", "mode": "pinned" },
+    { "path": "src/components/Wordmark.module.css", "mode": "pinned" },
+    { "path": "src/components/Wordmark.tsx", "mode": "pinned" },
+
+    { "path": "src/app/icon.svg", "mode": "pinned" },
+
+    { "path": "src/app/layout.tsx", "mode": "forked" },
+    { "path": "src/app/globals.css", "mode": "forked" },
+    { "path": "src/app/page.tsx", "mode": "forked" }
+  ]
+}
