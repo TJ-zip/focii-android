@@ -1,15 +1,15 @@
 # CI report
 
-Generated 2026-08-31T15:22:32.744Z
+Generated 2026-08-31T16:00:55.588Z
 
-Commit `0bbbbee` on `feature/android-scaffold`
+Commit `bbfa256` on `main`
 
 ## Summary
 
 | script | exit | duration |
 |---|---:|---:|
-| `typecheck` | 0 | 2.5s |
-| `build` | 0 | 8.3s |
+| `typecheck` | 0 | 2.3s |
+| `build` | 0 | 6.9s |
 | `check:export` | 0 | 0.1s |
 
 ## `npm run typecheck` - exit 0
@@ -38,7 +38,7 @@ Commit `0bbbbee` on `feature/android-scaffold`
 > next build
 
 ▲ Next.js 16.3.0 (Turbopack)
-✓ Running next.config.mjs took 12ms
+✓ Running next.config.mjs took 10ms
 ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
 Attention: Next.js now collects completely anonymous telemetry regarding usage.
 This information is used to shape Next.js' roadmap and prioritize features.
@@ -47,7 +47,7 @@ https://nextjs.org/telemetry
 
 
   Creating an optimized production build ...
-✓ Compiled successfully in 4.1s
+✓ Compiled successfully in 3.4s
   Running TypeScript ...
 
   We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
@@ -59,13 +59,13 @@ https://nextjs.org/telemetry
 
   	- jsx was set to react-jsx (next.js uses the React automatic runtime)
 
-  Finished TypeScript in 2.4s ...
+  Finished TypeScript in 1783ms ...
   Collecting page data using 3 workers ...
   Generating static pages using 3 workers (0/4) ...
   Generating static pages using 3 workers (1/4) 
   Generating static pages using 3 workers (2/4) 
   Generating static pages using 3 workers (3/4) 
-✓ Generating static pages using 3 workers (4/4) in 224ms
+✓ Generating static pages using 3 workers (4/4) in 168ms
   Finalizing page optimization ...
 
 Route (app)
