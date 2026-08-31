@@ -15,6 +15,8 @@
 #
 # Available: dev, build, typecheck, vendor, vendor:check, check:export
 # (`dev` would hang a runner forever -- do not list it.)
+#
+# Requested: first full build of the vendored tree.
 
 typecheck
 build
