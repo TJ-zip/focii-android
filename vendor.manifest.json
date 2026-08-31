@@ -11,7 +11,25 @@
     "          local edits are expected and do not fail the check.",
     "",
     "src/app/apple-icon.tsx is absent on purpose. It is a dynamic route that",
-    "rasterises through Satori at request time, which a static export cannot do."
+    "rasterises through Satori at request time, which a static export cannot do.",
+    "",
+    "WHY ModeDot.tsx AND CommandCenter.tsx ARE FORKED",
+    "",
+    "Both were pinned until the touch layer landed. Both hardcode keyboard",
+    "copy: ModeDot's hint sequence is 'To pause, press P' / 'Want it",
+    "seamless?' / 'Press Shift + C', and CommandCenter is a list of ten key",
+    "chords. On a device with no keyboard every one of those lines names a",
+    "thing the user cannot do, which is worse than saying nothing.",
+    "",
+    "Forking them costs nothing that pinning was protecting. The point of a",
+    "pin is a constant arrived at by ear that no reader could re-derive.",
+    "Neither file contains one; their content is words. The audio engine, the",
+    "presets and the visualizer remain pinned, which is where the value is.",
+    "",
+    "Both edits are additive and defaulted -- an optional `steps` prop and an",
+    "optional `touch` flag -- so a desktop browser gets exactly what it got",
+    "before, and the diff against upstream stays small enough to re-apply by",
+    "hand when the web app moves on."
   ],
   "upstream": {
     "owner": "TJ-zip",
@@ -29,9 +47,7 @@
 
     { "path": "src/components/Blackout.module.css", "mode": "pinned" },
     { "path": "src/components/Blackout.tsx", "mode": "pinned" },
-    { "path": "src/components/CommandCenter.tsx", "mode": "pinned" },
     { "path": "src/components/MeasurePane.tsx", "mode": "pinned" },
-    { "path": "src/components/ModeDot.tsx", "mode": "pinned" },
     { "path": "src/components/Philosophy.tsx", "mode": "pinned" },
     { "path": "src/components/SessionClock.tsx", "mode": "pinned" },
     { "path": "src/components/SkipPrompt.module.css", "mode": "pinned" },
@@ -42,6 +58,8 @@
 
     { "path": "src/app/icon.svg", "mode": "pinned" },
 
+    { "path": "src/components/CommandCenter.tsx", "mode": "forked" },
+    { "path": "src/components/ModeDot.tsx", "mode": "forked" },
     { "path": "src/app/layout.tsx", "mode": "forked" },
     { "path": "src/app/globals.css", "mode": "forked" },
     { "path": "src/app/page.tsx", "mode": "forked" }
